@@ -76,7 +76,7 @@ public class HadesGame extends ApplicationAdapter {
 
     @Override
     public void render() {
-        // [수정] 게임이 끝나지 않았을 때 턴에 따른 로직 수행
+        // 게임이 끝나지 않았을 때 턴에 따른 로직 수행
         if (!gameOver) {
             if (turnManager.getCurrentTurn().equals("HADES")) {
                 // 플레이어 턴이 돌아오면 AI 관련 상태를 초기화합니다.
@@ -115,8 +115,21 @@ public class HadesGame extends ApplicationAdapter {
         }
 
         if (gameOver) {
+            // 반투명한 검은 배경 (선택 사항)
+            batch.end();
+            Gdx.gl.glEnable(GL20.GL_BLEND);
+            shape.begin(ShapeRenderer.ShapeType.Filled);
+            shape.setColor(0, 0, 0, 0.5f); // 50% 투명도
+            shape.rect(0, 300, Gdx.graphics.getWidth(), 200);
+            shape.end();
+            batch.begin();
+
+            // 승리 문구
+            font.getData().setScale(3.0f); // 글자 크기 3배
             font.setColor(Color.YELLOW);
-            font.draw(batch, "게임 종료! 승리팀: " + winner, 300, 400);
+            String resultText = "VICTORY: " + winner + " TEAM!";
+            font.draw(batch, resultText, 150, 420);
+            font.getData().setScale(1.0f); // 다시 원래대로 복구
         }
         batch.end();
     }
@@ -133,8 +146,8 @@ public class HadesGame extends ApplicationAdapter {
     }
 
     /**
-     * 사용자의 마우스 입력을 처리합니다.
-     * 내 팀 유닛만 선택 가능하도록 보완되었습니다.
+     * [수정] 사용자의 마우스 입력을 처리합니다.
+     * 이제 클릭 시 공격하지 않고 오직 '이동'만 수행합니다.
      */
     private void updateInput() {
         float mx = Gdx.input.getX();
@@ -147,31 +160,40 @@ public class HadesGame extends ApplicationAdapter {
 
             Unit clickedUnit = BoardManager.getUnitAt(units, tx, ty);
 
-            if (clickedUnit != null) {
-                // 공격 대상 선택 (이미 선택된 내 유닛이 있고, 클릭한 게 적군일 때)
-                if (selectedUnit != null && !selectedUnit.team.equals(clickedUnit.team)) {
-                    if (BoardManager.canAttack(selectedUnit, clickedUnit)) {
-                        performAttack(selectedUnit, clickedUnit);
-                        selectedUnit = null;
-                        turnManager.endTurn();
-                    }
-                }
-                // 내 유닛 선택 (현재 턴의 팀과 클릭한 유닛의 팀이 같을 때만)
-                else if (turnManager.isMyTurn(clickedUnit.team)) {
-                    selectedUnit = clickedUnit;
-                }
+            // 유닛 선택: 내 턴의 유닛만 선택 가능
+            if (clickedUnit != null && turnManager.isMyTurn(clickedUnit.team)) {
+                selectedUnit = clickedUnit;
             }
-            // 이동 처리 (빈 공간 클릭 시)
+            // 이동 처리: 빈 공간 클릭 시 이동 후 즉시 자동 공격 및 턴 종료
             else if (selectedUnit != null) {
                 if (BoardManager.canMoveTo(selectedUnit, tx, ty, units)) {
-                    if (selectedUnit.stat.skillName().equals("유연한 발걸음")) {
-                        processPathAttack(selectedUnit, tx, ty);
-                    }
                     selectedUnit.setPosition(tx, ty);
+
+                    // [핵심] 이동 직후 해당 팀의 모든 유닛이 자동 공격 실행
+                    processAutoAttack(turnManager.getCurrentTurn());
+
                     selectedUnit = null;
                     turnManager.endTurn();
                 } else {
                     selectedUnit = null;
+                }
+            }
+        }
+    }
+
+    /**
+     * [신규] 특정 팀의 모든 유닛이 사거리 내 적을 1회 자동 공격합니다.
+     */
+    private void processAutoAttack(String team) {
+        System.out.println("=== [" + team + "] 진영 자동 협공 개시 ===");
+
+        // 리스트 변동에 안전하도록 인덱스 기반 순회
+        for (int i = 0; i < units.size; i++) {
+            Unit attacker = units.get(i);
+            if (attacker.team.equals(team) && attacker.currentHp > 0) {
+                Unit target = BoardManager.findBestTargetInRange(attacker, units);
+                if (target != null) {
+                    performAttack(attacker, target);
                 }
             }
         }
@@ -193,14 +215,28 @@ public class HadesGame extends ApplicationAdapter {
         }
     }
 
+    /**
+     * [메서드 설명]
+     * 공격자가 대상을 공격하여 체력을 차감하고, 사망 시 리스트에서 제거합니다.
+     */
     private void performAttack(Unit attacker, Unit target) {
-        target.currentHp -= attacker.stat.atk();
+        if (attacker == null || target == null) return;
+
+        int damage = attacker.stat.atk();
+        target.currentHp -= damage;
+
+        // [보정] 체력이 0보다 작아지면 0으로 표시
+        int displayHp = Math.max(0, target.currentHp);
+
+        System.out.println("[전투] " + attacker.name + "가 " + target.name + "을 공격! (데미지: " + damage + ", 남은 체력: " + displayHp + ")");
+
         if (target.currentHp <= 0) {
-            // 왕(RULER)이 죽으면 게임 종료
-            if (target.stat.skillName().equals("왕의 위엄")) {
+            if ("왕의 위엄".equals(target.stat.skillName())) {
                 gameOver = true;
                 winner = attacker.team;
+                System.out.println("!!! " + winner + " 팀이 승리하였습니다 !!!");
             }
+            System.out.println("[처치] " + target.name + " 전사.");
             units.removeValue(target, true);
         }
     }

@@ -46,4 +46,32 @@ public class BoardManager {
         return distance <= attacker.stat.range();
     }
 
+    /**
+     * [메서드 설명]
+     * 특정 유닛의 사거리 내에 있는 적들 중 가장 우선순위가 높은 타겟을 반환합니다.
+     * 우선순위: 1. 왕(RULER)  2. 현재 체력이 낮은 적
+     */
+    public static Unit findBestTargetInRange(Unit attacker, Array<Unit> units) {
+        Unit bestTarget = null;
+        int minHp = Integer.MAX_VALUE;
+
+        for (Unit unit : units) {
+            // 적군이고 사거리 안에 있는지 확인
+            if (!unit.team.equals(attacker.team) && unit.currentHp > 0) {
+                if (canAttack(attacker, unit)) {
+                    // 1순위: 적의 왕을 발견하면 즉시 타겟팅
+                    if ("왕의 위엄".equals(unit.stat.skillName())) {
+                        return unit;
+                    }
+                    // 2순위: 체력이 가장 낮은 적 선택
+                    if (unit.currentHp < minHp) {
+                        minHp = unit.currentHp;
+                        bestTarget = unit;
+                    }
+                }
+            }
+        }
+        return bestTarget;
+    }
+
 }
