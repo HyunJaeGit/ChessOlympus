@@ -2,158 +2,174 @@ package com.hades.game.logic;
 
 import com.badlogic.gdx.utils.Array;
 import com.hades.game.entities.Unit;
-import com.hades.game.constants.UnitData;
+import com.badlogic.gdx.math.MathUtils;
 
 /**
  * [클래스 역할]
- * 유닛의 생존 여부와 가치를 판단하여 최선의 수를 결정합니다.
- * 죽은 유닛이나 가치가 없는 대상은 연산에서 즉시 제외하여 효율성과 안정성을 높였습니다.
+ * 팀의 전략(암살, 희생, 고효율)에 따라 최적의 이동 요원을 선발합니다.
+ * 킹은 팀의 패배 조건이므로 최대한 사리며, 일반 병사들이 전선을 형성하도록 제어합니다.
  */
 public class AILogic {
 
     /**
-     * AI의 턴을 처리합니다.
-     * 리스트 순회 중 유닛이 제거되어도 에러가 나지 않도록 인덱스 방식을 사용합니다.
+     * AI의 전체 턴 흐름을 제어합니다.
      */
     public static void processAITurn(Array<Unit> units, String aiTeam, TurnManager turnManager) {
-        System.out.println("=== " + aiTeam + " AI 전략 연산 시작 ===");
+        String strategy = rollTeamStrategy();
+        System.out.println("\n=== [" + aiTeam + "] AI 전략 수립: " + strategy + " ===");
 
-        Unit bestActor = null;
-        Unit bestTarget = null;
-        int maxScore = -1;
+        Unit actor = null;
+        Unit target = null;
 
-        // [안전] 향상된 for문 대신 인덱스(i)를 사용하여 리스트 변동 시 발생하는 에러를 방지합니다.
-        for (int i = 0; i < units.size; i++) {
-            Unit actor = units.get(i);
-
-            // 1. 행동 유닛 검사: 죽었거나 우리 팀이 아니면 스킵
-            if (actor == null || actor.currentHp <= 0 || !actor.team.equals(aiTeam)) continue;
-
-            for (int j = 0; j < units.size; j++) {
-                Unit target = units.get(j);
-
-                // 2. 타겟 유닛 검사: 죽었거나 같은 팀이면 스킵 (사용자님 제안 반영)
-                if (target == null || target.currentHp <= 0 || target.team.equals(aiTeam)) continue;
-
-                int score = evaluateAction(actor, target, units);
-                if (score > maxScore) {
-                    maxScore = score;
-                    bestActor = actor;
-                    bestTarget = target;
+        // 1. 전략 기조에 따른 요원 및 타겟 선발
+        if ("암살형".equals(strategy)) {
+            target = findWeakestEnemy(units, aiTeam);
+            if (target != null) actor = findMovableAllyClosestTo(units, aiTeam, target);
+        }
+        else if ("희생형".equals(strategy)) {
+            Unit bait = findSacrificialUnit(units, aiTeam);
+            if (bait != null) {
+                target = findBestTargetForUnit(bait, units);
+                if (target != null) {
+                    System.out.println("[AI 희생] 미끼: " + bait.name + " -> 자리를 고수하며 [" + target.name + "] 유인.");
+                    actor = findOtherMovableAlly(units, aiTeam, bait, target);
                 }
             }
         }
 
-        // 3. 연산된 최선의 수 실행
-        if (bestActor != null && bestTarget != null && maxScore > 0) {
-            executeFinalAction(bestActor, bestTarget, units);
-        } else {
-            System.out.println("[AI] 현재 공격하거나 이동할 수 있는 유효한 타겟이 없습니다.");
+        // 2. 특정 전략 요원 선발 실패 시, 가장 효율적인 이동 쌍 선발 (킹은 여기서도 후순위)
+        if (actor == null) {
+            Object[] pair = findBestMovableEfficiencyPair(units, aiTeam);
+            actor = (Unit) pair[0];
+            target = (Unit) pair[1];
+            if (actor != null) strategy = "고효율(전환)";
         }
 
-        System.out.println("=== " + aiTeam + " 턴 종료 ===");
+        // 3. 실행: 좌표 변화가 보장된 이동 수행
+        if (actor != null && target != null) {
+            executeMoveByStrategy(actor, target, units, strategy);
+            processTeamAutoAttack(units, aiTeam);
+        } else {
+            System.out.println("[AI] 이동 가능한 적절한 유닛이 없습니다.");
+        }
+
         turnManager.endTurn();
     }
 
     /**
-     * 특정 유닛들 간의 행동 가치를 평가합니다.
+     * [메서드 설명] 킹이 함부로 전진하지 않도록 가치 평가를 엄격히 제한합니다.
      */
     private static int evaluateAction(Unit actor, Unit target, Array<Unit> units) {
-        if (actor.currentHp <= 0 || target.currentHp <= 0) return 0;
-
         int score = 0;
         int dist = Math.abs(actor.gridX - target.gridX) + Math.abs(actor.gridY - target.gridY);
+        int targetValue = target.stat.value();
 
-        // [수정] 타겟이 '왕'이라면 데이터상의 가치와 상관없이 엄청난 보너스 부여
-        int targetRealValue = target.stat.value();
-        if ("왕의 위엄".equals(target.stat.skillName())) {
-            targetRealValue = 1000; // 적 왕은 무조건 1순위 타겟
-        }
+        // 적 킹은 반드시 잡아야 할 1순위 타겟
+        if ("왕의 위엄".equals(target.stat.skillName())) targetValue = 1500;
 
         if (dist <= actor.stat.range()) {
-            // 공격 상황: 적 왕을 죽일 수 있다면 최고 점수
-            score = (target.currentHp <= actor.stat.atk()) ? (targetRealValue * 10) : targetRealValue;
+            // 사거리 내 적이 있다면 공격 가치 계산
+            score = (target.currentHp <= actor.stat.atk()) ? (targetValue * 10) : targetValue;
         } else {
-            // 이동 상황: 적에게 다가가는 보너스
-            score = Math.max(0, 10 - dist) + (targetRealValue / 10);
+            // 사거리 밖의 적을 향해 전진할 때의 점수
+            score = Math.max(0, 10 - dist) + (targetValue / 10);
 
-            // [추가] 자신의 가치가 너무 높으면(예: 왕) 전방으로 나가는 것에 감점 부여
-            // "왕의 위엄" 스킬을 가진 유닛은 공격하러 나가는 점수를 깎습니다.
+            /* [핵심] 아군 킹의 돌발 행동 방지 */
             if ("왕의 위엄".equals(actor.stat.skillName())) {
-                score -= 500; // 왕은 웬만하면 제자리에 있게 함
+                score -= 3000; // 킹이 직접 전진하는 것에 대해 매우 큰 패널티 부여
+                if ((float)actor.currentHp / actor.stat.hp() < 0.6f) score -= 5000; // 체력이 깎이면 더 사림
             }
         }
 
-        // 우리 왕 보호 보너스 (기존 로직 유지)
+        // 아군 킹 주변의 적을 처단하여 보호하는 로직
         Unit myKing = findKing(actor.team, units);
-        if (myKing != null && myKing != target) {
+        if (myKing != null && myKing != actor && myKing != target) {
             int distToKing = Math.abs(target.gridX - myKing.gridX) + Math.abs(target.gridY - myKing.gridY);
-            if (distToKing <= 2) score += 150;
+            if (distToKing <= 3) score += 500; // 킹을 위협하는 적에 대한 반격 우선순위
         }
 
         return score;
     }
 
     /**
-     * 실제 공격 또는 이동 명령을 내립니다.
+     * [메서드 설명] 킹을 제외한 일반 유닛 중 타겟과 가까운 유닛을 우선 선발합니다.
      */
-    private static void executeFinalAction(Unit actor, Unit target, Array<Unit> units) {
+    private static Unit findMovableAllyClosestTo(Array<Unit> units, String aiTeam, Unit target) {
+        Unit closest = null; int minDist = Integer.MAX_VALUE;
+        for (int i = 0; i < units.size; i++) {
+            Unit u = units.get(i);
+            if (u == null || u.currentHp <= 0 || !u.team.equals(aiTeam)) continue;
+
+            // 킹은 전진 요원에서 원칙적으로 제외
+            if ("왕의 위엄".equals(u.stat.skillName())) continue;
+
+            if (willActuallyMove(u, target, units)) {
+                int d = Math.abs(u.gridX - target.gridX) + Math.abs(u.gridY - target.gridY);
+                if (d < minDist) { minDist = d; closest = u; }
+            }
+        }
+        // 아군이 킹밖에 없다면 킹이 스스로 움직임
+        return (closest != null) ? closest : findKing(aiTeam, units);
+    }
+
+    /**
+     * [메서드 설명] 두 유닛 간의 좌표 이동이 실제로 발생하는지 체크합니다.
+     */
+    private static boolean willActuallyMove(Unit actor, Unit target, Array<Unit> units) {
+        int oldX = actor.gridX, oldY = actor.gridY;
+        int dx = Integer.compare(target.gridX, actor.gridX);
+        int dy = Integer.compare(target.gridY, actor.gridY);
+        int nextX = oldX, nextY = oldY;
+
+        if (dx != 0 && BoardManager.canMoveTo(actor, oldX + dx, oldY, units)) nextX += dx;
+        else if (dy != 0 && BoardManager.canMoveTo(actor, oldX, oldY + dy, units)) nextY += dy;
+
+        return (nextX != oldX || nextY != oldY);
+    }
+
+    /**
+     * [메서드 설명] 중첩 이터레이터 에러 방지를 위한 인덱스 기반의 쌍 선발 로직입니다.
+     */
+    private static Object[] findBestMovableEfficiencyPair(Array<Unit> units, String aiTeam) {
+        Unit bestA = null, bestT = null; int maxS = -10000;
+        for (int i = 0; i < units.size; i++) {
+            Unit a = units.get(i);
+            if (a == null || a.currentHp <= 0 || !a.team.equals(aiTeam)) continue;
+            for (int j = 0; j < units.size; j++) {
+                Unit t = units.get(j);
+                if (t == null || t.currentHp <= 0 || t.team.equals(aiTeam)) continue;
+
+                if (willActuallyMove(a, t, units)) {
+                    int s = evaluateAction(a, t, units);
+                    if (s > maxS) { maxS = s; bestA = a; bestT = t; }
+                }
+            }
+        }
+        return new Object[]{bestA, bestT};
+    }
+
+    private static void executeMoveByStrategy(Unit actor, Unit target, Array<Unit> units, String strategy) {
+        int oldX = actor.gridX, oldY = actor.gridY;
+        System.out.print("[AI 선발] 요원: " + actor.name + " (" + strategy + ") -> ");
+
+        // 킹이고 체력이 낮으며 적이 너무 가까우면 도망 로직 시도 (추가 생존본능)
         int dist = Math.abs(actor.gridX - target.gridX) + Math.abs(actor.gridY - target.gridY);
-        if (dist <= actor.stat.range()) {
-            performAttack(actor, target, units);
+        if ("왕의 위엄".equals(actor.stat.skillName()) && (float)actor.currentHp / actor.stat.hp() < 0.4f && dist < 3) {
+            System.out.print("위험 감지! 후퇴 시도 -> ");
+            moveAwayFrom(actor, target, units);
         } else {
             tryMoveToward(actor, target, units);
         }
+        System.out.println("좌표 변경: (" + oldX + "," + oldY + ") -> (" + actor.gridX + "," + actor.gridY + ")");
     }
 
-    /**
-     * 유닛 공격을 수행하고 체력이 0이 되면 리스트에서 제거합니다.
-     */
-    private static void performAttack(Unit attacker, Unit target, Array<Unit> units) {
-        target.currentHp -= attacker.stat.atk();
-        System.out.println("[AI 공격] " + attacker.name + " -> " + target.name + " (잔여 HP: " + Math.max(0, target.currentHp) + ")");
+    // --- 유틸리티 메서드들 ---
 
-        if (target.currentHp <= 0) {
-            System.out.println("[전사] " + target.name + "이(가) 전장을 떠납니다.");
-            units.removeValue(target, true);
-        }
-    }
-
-    /**
-     * 타겟을 향해 한 칸 이동합니다.
-     */
-    private static void tryMoveToward(Unit actor, Unit target, Array<Unit> units) {
-        int nextX = actor.gridX, nextY = actor.gridY;
-
-        if ("도약".equals(actor.stat.skillName())) {
-            int[][] leapOffsets = {{2,1}, {2,-1}, {-2,1}, {-2,-1}, {1,2}, {1,-2}, {-1,2}, {-1,-2}};
-            int minD = Integer.MAX_VALUE;
-            for (int[] o : leapOffsets) {
-                int tx = actor.gridX + o[0], ty = actor.gridY + o[1];
-                if (BoardManager.canMoveTo(actor, tx, ty, units)) {
-                    int d = Math.abs(tx - target.gridX) + Math.abs(ty - target.gridY);
-                    if (d < minD) { minD = d; nextX = tx; nextY = ty; }
-                }
-            }
-        } else {
-            int dx = Integer.compare(target.gridX, actor.gridX);
-            int dy = Integer.compare(target.gridY, actor.gridY);
-            if (dx != 0 && BoardManager.canMoveTo(actor, actor.gridX + dx, actor.gridY, units)) nextX += dx;
-            else if (dy != 0 && BoardManager.canMoveTo(actor, actor.gridX, actor.gridY + dy, units)) nextY += dy;
-        }
-
-        if (nextX != actor.gridX || nextY != actor.gridY) {
-            actor.setPosition(nextX, nextY);
-            System.out.println("[AI 이동] " + actor.name + " -> (" + nextX + "," + nextY + ")");
-        }
-    }
-
-    private static boolean canLeapAnywhere(Unit actor, Array<Unit> units) {
-        int[][] leapOffsets = {{2,1}, {2,-1}, {-2,1}, {-2,-1}, {1,2}, {1,-2}, {-1,2}, {-1,-2}};
-        for (int[] o : leapOffsets) {
-            if (BoardManager.canMoveTo(actor, actor.gridX + o[0], actor.gridY + o[1], units)) return true;
-        }
-        return false;
+    private static String rollTeamStrategy() {
+        float roll = MathUtils.random(0f, 100f);
+        if (roll < 20) return "암살형";
+        if (roll < 50) return "희생형";
+        return "고효율";
     }
 
     private static Unit findKing(String team, Array<Unit> units) {
@@ -164,29 +180,106 @@ public class AILogic {
         return null;
     }
 
-    /**
-     * [신규 메서드] 사거리 내의 적들 중 누구를 쏠지 결정합니다.
-     */
-    private static Unit findBestTargetInRange(Unit attacker, Array<Unit> units) {
-        Unit bestTarget = null;
-        int minHp = Integer.MAX_VALUE;
-
+    private static Unit findWeakestEnemy(Array<Unit> units, String aiTeam) {
+        Unit weakest = null; int minHp = Integer.MAX_VALUE;
         for (int i = 0; i < units.size; i++) {
-            Unit target = units.get(i);
-            if (target == null || target.currentHp <= 0 || target.team.equals(attacker.team)) continue;
+            Unit u = units.get(i);
+            if (u != null && u.currentHp > 0 && !u.team.equals(aiTeam)) {
+                if (u.currentHp < minHp) { minHp = u.currentHp; weakest = u; }
+            }
+        }
+        return weakest;
+    }
 
-            // BoardManager를 통해 사거리 체크
-            if (BoardManager.canAttack(attacker, target)) {
-                // 적 왕이면 즉시 타겟팅 (최우선순위)
-                if ("왕의 위엄".equals(target.stat.skillName())) return target;
-
-                // 그 외엔 체력이 가장 적은 적 우선
-                if (target.currentHp < minHp) {
-                    minHp = target.currentHp;
-                    bestTarget = target;
+    private static Unit findOtherMovableAlly(Array<Unit> units, String aiTeam, Unit bait, Unit target) {
+        Unit best = null; int minDist = Integer.MAX_VALUE;
+        for (int i = 0; i < units.size; i++) {
+            Unit u = units.get(i);
+            if (u != null && u.currentHp > 0 && u.team.equals(aiTeam) && u != bait) {
+                if ("왕의 위엄".equals(u.stat.skillName())) continue;
+                if (willActuallyMove(u, target, units)) {
+                    int d = Math.abs(u.gridX - target.gridX) + Math.abs(u.gridY - target.gridY);
+                    if (d < minDist) { minDist = d; best = u; }
                 }
             }
         }
-        return bestTarget;
+        return best;
+    }
+
+    private static Unit findSacrificialUnit(Array<Unit> units, String aiTeam) {
+        Unit candidate = null; float minRatio = 2.0f;
+        for (int i = 0; i < units.size; i++) {
+            Unit u = units.get(i);
+            if (u != null && u.currentHp > 0 && u.team.equals(aiTeam)) {
+                if ("왕의 위엄".equals(u.stat.skillName())) continue;
+                float r = (float) u.currentHp / u.stat.hp();
+                if (r < minRatio) { minRatio = r; candidate = u; }
+            }
+        }
+        return candidate;
+    }
+
+    private static Unit findBestTargetForUnit(Unit actor, Array<Unit> units) {
+        Unit best = null; int maxS = -10000;
+        for (int i = 0; i < units.size; i++) {
+            Unit u = units.get(i);
+            if (u == null || u.currentHp <= 0 || u.team.equals(actor.team)) continue;
+            int s = evaluateAction(actor, u, units);
+            if (s > maxS) { maxS = s; best = u; }
+        }
+        return best;
+    }
+
+    private static void tryMoveToward(Unit actor, Unit target, Array<Unit> units) {
+        int dx = Integer.compare(target.gridX, actor.gridX);
+        int dy = Integer.compare(target.gridY, actor.gridY);
+        if (dx != 0 && BoardManager.canMoveTo(actor, actor.gridX + dx, actor.gridY, units)) actor.setPosition(actor.gridX + dx, actor.gridY);
+        else if (dy != 0 && BoardManager.canMoveTo(actor, actor.gridX, actor.gridY + dy, units)) actor.setPosition(actor.gridX, actor.gridY + dy);
+    }
+
+    private static void moveAwayFrom(Unit actor, Unit target, Array<Unit> units) {
+        int bestX = actor.gridX, bestY = actor.gridY;
+        int maxD = Math.abs(actor.gridX - target.gridX) + Math.abs(actor.gridY - target.gridY);
+        int[][] dirs = {{1,0}, {-1,0}, {0,1}, {0,-1}};
+        for (int[] d : dirs) {
+            int tx = actor.gridX + d[0], ty = actor.gridY + d[1];
+            if (BoardManager.canMoveTo(actor, tx, ty, units)) {
+                int dist = Math.abs(tx - target.gridX) + Math.abs(ty - target.gridY);
+                if (dist > maxD) { maxD = dist; bestX = tx; bestY = ty; }
+            }
+        }
+        actor.setPosition(bestX, bestY);
+    }
+
+    private static void processTeamAutoAttack(Array<Unit> units, String team) {
+        System.out.println("[협공] " + team + " 진영 자동 사격!");
+        for (int i = 0; i < units.size; i++) {
+            Unit attacker = units.get(i);
+            if (attacker == null || attacker.currentHp <= 0 || !attacker.team.equals(team)) continue;
+            Unit target = findBestTargetInRange(attacker, units);
+            if (target != null) performAttack(attacker, target, units);
+        }
+    }
+
+    private static Unit findBestTargetInRange(Unit attacker, Array<Unit> units) {
+        Unit best = null; int minHp = Integer.MAX_VALUE;
+        for (int i = 0; i < units.size; i++) {
+            Unit t = units.get(i);
+            if (t != null && t.currentHp > 0 && !t.team.equals(attacker.team)) {
+                if (BoardManager.canAttack(attacker, t)) {
+                    if (t.currentHp < minHp) { minHp = t.currentHp; best = t; }
+                }
+            }
+        }
+        return best;
+    }
+
+    private static void performAttack(Unit attacker, Unit target, Array<Unit> units) {
+        target.currentHp -= attacker.stat.atk();
+        System.out.println(" -> [공격] " + attacker.name + " -> " + target.name + " (HP: " + Math.max(0, target.currentHp) + ")");
+        if (target.currentHp <= 0) {
+            System.out.println(" -> [전사] " + target.name + " 퇴장.");
+            units.removeValue(target, true);
+        }
     }
 }

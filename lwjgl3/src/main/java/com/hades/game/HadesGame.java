@@ -217,18 +217,31 @@ public class HadesGame extends ApplicationAdapter {
 
     /**
      * [메서드 설명]
-     * 공격자가 대상을 공격하여 체력을 차감하고, 사망 시 리스트에서 제거합니다.
+     * 공격자가 대상을 공격합니다. (게임의 전역 룰 집행)
+     * 내 팀의 턴이면 일반 공격력(atk)을, 상대 팀의 턴이면 반격력(counterAtk)을 적용합니다.
      */
     private void performAttack(Unit attacker, Unit target) {
         if (attacker == null || target == null) return;
 
-        int damage = attacker.stat.atk();
+        // 1. 현재 누구의 턴인지 확인
+        String currentTurn = turnManager.getCurrentTurn();
+        int damage;
+
+        // 2. 공격자의 팀이 현재 턴 팀과 같다면 주도적 공격, 다르다면 반격/협공
+        if (attacker.team.equals(currentTurn)) {
+            damage = attacker.stat.atk();
+        } else {
+            damage = attacker.stat.counterAtk(); // 새로 추가된 counterAtk 사용
+        }
+
         target.currentHp -= damage;
 
         // [보정] 체력이 0보다 작아지면 0으로 표시
         int displayHp = Math.max(0, target.currentHp);
 
-        System.out.println("[전투] " + attacker.name + "가 " + target.name + "을 공격! (데미지: " + damage + ", 남은 체력: " + displayHp + ")");
+        // 로그에 반격인지 일반 공격인지 표시해주면 구분이 쉽습니다.
+        String type = attacker.team.equals(currentTurn) ? "[공격]" : "[반격/협공]";
+        System.out.println(type + " " + attacker.name + " -> " + target.name + " (피해: " + damage + ", 남은 HP: " + displayHp + ")");
 
         if (target.currentHp <= 0) {
             if ("왕의 위엄".equals(target.stat.skillName())) {
