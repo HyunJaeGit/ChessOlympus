@@ -1,36 +1,42 @@
-# HadesVsZeus
+# 🏛️ ChessOlympus: War of Gods
 
-A [libGDX](https://libgdx.com/) project generated with [gdx-liftoff](https://github.com/libgdx/gdx-liftoff).
+### **"제우스와 하데스의 전쟁"**
 
-This project was generated with a template including simple application launchers and an `ApplicationAdapter` extension that draws libGDX logo.
+---
 
-## Platforms
+## 📖 게임 소개
 
-- `core`: Main module with the application logic shared by all platforms.
-- `lwjgl3`: Primary desktop platform using LWJGL3; was called 'desktop' in older docs.
-- `html`: Web platform using GWT and WebGL. Supports only Java projects.
+**ChessOlympus**는 그리스 신화를 배경으로 한 **아이소메트릭(쿼터뷰) 턴제 전략 게임**입니다.
+제우스 진영과 하데스 진영 중 하나를 선택하여, 각기 다른 능력과 스킬을 가진 신들을 지휘해 승리를 쟁취하세요.
 
-## Gradle
+## 📜 게임 규칙 (Core Rules)
 
-This project uses [Gradle](https://gradle.org/) to manage dependencies.
-The Gradle wrapper was included, so you can run Gradle tasks using `gradlew.bat` or `./gradlew` commands.
-Useful Gradle tasks and flags:
+1. **승리 조건**:
+* 상대 팀의 **리더**를 처치하면 즉시 승리합니다.
+* (하데스 진영, 제우스 진영 선택 가능)
+* 인공지능(AI) 상대와 솔로 플레이 가능
 
-- `--continue`: when using this flag, errors will not stop the tasks from running.
-- `--daemon`: thanks to this flag, Gradle daemon will be used to run chosen tasks.
-- `--offline`: when using this flag, cached dependency archives will be used.
-- `--refresh-dependencies`: this flag forces validation of all dependencies. Useful for snapshot versions.
-- `build`: builds sources and archives of every project.
-- `cleanEclipse`: removes Eclipse project data.
-- `cleanIdea`: removes IntelliJ project data.
-- `clean`: removes `build` folders, which store compiled classes and built archives.
-- `eclipse`: generates Eclipse project data.
-- `html:dist`: compiles GWT sources. The compiled application can be found at `html/build/dist`: you can use any HTTP server to deploy it.
-- `html:superDev`: compiles GWT sources and runs the application in SuperDev mode. It will be available at [localhost:8080/html](http://localhost:8080/html). Use only during development.
-- `idea`: generates IntelliJ project data.
-- `lwjgl3:jar`: builds application's runnable jar, which can be found at `lwjgl3/build/libs`.
-- `lwjgl3:run`: starts the application.
-- `test`: runs unit tests (if any).
 
-Note that most tasks that are not specific to a single project can be run with `name:` prefix, where the `name` should be replaced with the ID of a specific project.
-For example, `core:clean` removes `build` folder only from the `core` project.
+2. **턴제 전투**:
+* 자신의 턴에 유닛을 선택하여 **이동**하거나 **공격**할 수 있습니다.
+* 모든 행동이 끝나면 상대방에게 턴이 넘어갑니다.
+
+
+3. **유닛 상성**:
+* 각 유닛은 고유의 **공격력, 체력, 사거리, 이동력**을 가집니다.
+* 유닛마다 특수한 **패시브 또는 액티브 스킬**을 보유하고 있어 전략적 활용이 중요합니다.
+
+
+4. **조작 방법**:
+* **마우스 클릭**: 유닛 선택 및 타일 이동 / 공격 대상 지정
+
+
+
+---
+
+## 🛠️ 개발 환경
+
+* **Language**: Java 21
+* **Engine**: libGDX
+
+---
