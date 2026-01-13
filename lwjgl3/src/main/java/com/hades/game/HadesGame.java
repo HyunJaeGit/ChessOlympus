@@ -22,17 +22,17 @@ public class HadesGame extends Game {
     public void create() {
         batch = new SpriteBatch();
 
-        /* [메서드 설명] FontFactory를 사용하여 필요한 모든 폰트를 안전하게 생성합니다. */
-        // 메인 폰트 (갈무리)
-        mainFont = FontFactory.createFont("Galmuri14", 18, Color.WHITE, 0);
-        // 상세 폰트 (맑은 고딕 - 없으면 갈무리로 대체됨)
-        detailFont = FontFactory.createFont("malgun", 14, Color.WHITE, 0);
-        // 기존 코드와의 호환성을 위해 font 변수에도 할당
+        // 1. 홈 타이틀: 가장 크고 화려하게 (금색 + 검정 테두리 3px + 그림자)
+        titleFont = FontFactory.createFont("Galmuri14", 36, Color.GOLD, 3.0f);
+        // 2. 홈 부제목: 차분하지만 선명하게 (밝은 회색 + 테두리 2px)
+        subtitleFont = FontFactory.createFont("Galmuri14", 22, Color.LIGHT_GRAY, 2.0f);
+        // 3. 메인 메뉴 버튼: 클릭 가독성을 위해 테두리 추가 (흰색 + 테두리 1.5px)
+        mainFont = FontFactory.createFont("Galmuri14", 18, Color.WHITE, 1.5f);
+        // 4. 상세 정보/저작권: 작은 글씨도 배경에 묻히지 않게 (회색/흰색 + 테두리 1px)
+        detailFont = FontFactory.createFont("malgun", 14, Color.WHITE, 1.0f);
+        // 기존 코드 호환용 할당
         font = mainFont;
-        // 홈 타이틀 폰트
-        titleFont = FontFactory.createFont("Galmuri14", 30, Color.GOLD, 2);
-        // 홈 부제목 타이틀 폰트
-        subtitleFont = FontFactory.createFont("Galmuri14", 22, Color.LIGHT_GRAY, 2);
+        /* [설명] 모든 자원이 준비되면 메뉴 화면으로 전환합니다. */
         this.setScreen(new MenuScreen(this));
     }
 
