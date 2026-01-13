@@ -16,10 +16,9 @@ import com.hades.game.logic.BoardManager;
 import com.hades.game.logic.IsoUtils;
 import com.hades.game.logic.TurnManager;
 import com.hades.game.view.MapRenderer;
+import com.hades.game.view.UnitRenderer;
 
-/**
- * 전투 화면의 모든 로직과 유닛 수명 주기를 관리하는 메인 스크린 클래스입니다.
- */
+// [클래스 역할] 전투 화면의 메인 루프를 담당하며, 유닛의 상태 업데이트와 시각적 렌더링을 통합 관리합니다.
 public class BattleScreen extends ScreenAdapter {
     private final HadesGame game;
     private ShapeRenderer shape;
@@ -28,9 +27,10 @@ public class BattleScreen extends ScreenAdapter {
     private Unit selectedUnit = null;
     private TurnManager turnManager;
     private MapRenderer mapRenderer;
+    private UnitRenderer unitRenderer;
 
-    private String playerTeam;
-    private String aiTeam;
+    private final String playerTeam;
+    private final String aiTeam;
     private float aiDelay = 0;
     private boolean aiBusy = false;
     private boolean gameOver = false;
@@ -43,10 +43,13 @@ public class BattleScreen extends ScreenAdapter {
         init();
     }
 
-    // 초기 자원 설정 및 팀 배치 수행
+    // 렌더러와 유닛 리스트, 턴 관리자를 초기화합니다.
     private void init() {
         shape = new ShapeRenderer();
         mapRenderer = new MapRenderer(shape);
+        // UnitRenderer 생성 시 playerTeam 인자를 전달합니다.
+        unitRenderer = new UnitRenderer(game.batch, shape, game.detailFont, playerTeam);
+
         units = new Array<>();
         turnManager = new TurnManager();
 
@@ -54,7 +57,6 @@ public class BattleScreen extends ScreenAdapter {
         setupTeam("ZEUS", GameConfig.BOARD_HEIGHT - 1);
     }
 
-    // 지정된 진영의 유닛들을 시작 지점에 소환
     private void setupTeam(String team, int row) {
         UnitData.Stat[] stats = {
             UnitData.WARRIOR, UnitData.ALCHEMIST, UnitData.ASSASSIN,
@@ -70,14 +72,10 @@ public class BattleScreen extends ScreenAdapter {
     @Override
     public void render(float delta) {
         update(delta);
-
-        // DEAD 상태인 유닛들을 일괄 제거하여 메모리 및 참조 안전성 확보
         cleanupDeadUnits();
-
         draw();
     }
 
-    // 사망 처리된 유닛들을 실제 배열에서 제거 (역순 순회)
     private void cleanupDeadUnits() {
         for (int i = units.size - 1; i >= 0; i--) {
             Unit u = units.get(i);
@@ -88,63 +86,88 @@ public class BattleScreen extends ScreenAdapter {
         }
     }
 
-    // 게임 로직 업데이트 및 턴제 상태 제어
     private void update(float delta) {
         if (gameOver) return;
-
         String currentTurn = turnManager.getCurrentTurn();
 
         if (currentTurn.equals(playerTeam)) {
+            // [수정] 내 턴이 오면 '이동 완료 차단'과 'AI 실행 차단'을 모두 해제합니다.
             aiBusy = false;
             aiDelay = 0;
             handleInput();
         } else {
+            // AI 턴일 때
             aiDelay += delta;
-            if (aiDelay >= 1.0f && !aiBusy) {
-                aiBusy = true;
-                try {
-                    AILogic.processAITurn(units, aiTeam, turnManager, this);
+
+            // [수정] 딜레이가 다 찼을 때만 aiBusy를 체크하여 실행합니다.
+            // handleInput에서 이미 입력을 막고 있으므로 여기 조건은 단순화해도 안전합니다.
+            if (aiDelay >= 1.0f) {
+                // 아직 이번 AI 턴의 행동을 안 했다면 실행
+                if (aiBusy) { // 플레이어가 이동 후 true로 만든 상태라면
+                    try {
+                        System.out.println("[AI 행동 시작]");
+                        AILogic.processAITurn(units, aiTeam, turnManager, this);
+                        // processAITurn 내부에서 turnManager.endTurn()이 호출되면
+                        // 다음 프레임에서 위쪽 playerTeam 조건문으로 들어가 aiBusy가 false가 됩니다.
+                    } catch (Exception e) {
+                        System.err.println("[AI 오류] " + e.getMessage());
+                        turnManager.endTurn();
+                    }
+                    aiBusy = false; // 행동 완료 후 플래그 리셋
                     aiDelay = 0;
-                } catch (Exception e) {
-                    System.err.println("[AI 오류] " + e.getMessage());
-                    turnManager.endTurn();
+                    selectedUnit = null;
+                } else {
+                    // 혹시 플래그가 꺼져있다면 켜줍니다 (안전장치)
+                    aiBusy = true;
                 }
-                selectedUnit = null;
             }
         }
     }
 
-    // 마우스 좌표를 격자로 변환하여 유닛 선택 및 이동 처리
     private void handleInput() {
-        if (!turnManager.isMyTurn(playerTeam) || aiBusy) return;
+        // [보안강화] 내 턴이 아니거나 AI가 준비 중이면 절대 클릭 불가
+        if (!turnManager.getCurrentTurn().equals(playerTeam) || aiBusy || gameOver) {
+            return;
+        }
 
         float mx = Gdx.input.getX();
         float my = Gdx.graphics.getHeight() - Gdx.input.getY();
         hoveredGrid = IsoUtils.screenToGrid(mx, my);
 
         if (Gdx.input.justTouched()) {
+            // 격자 밖 클릭 방어
+            if (hoveredGrid.x < 0 || hoveredGrid.y < 0) return;
+
             int tx = (int) hoveredGrid.x;
             int ty = (int) hoveredGrid.y;
             Unit clicked = BoardManager.getUnitAt(units, tx, ty);
 
+            // 1. 내 유닛을 선택하는 경우
             if (clicked != null && clicked.isAlive() && clicked.team.equals(playerTeam)) {
                 selectedUnit = clicked;
-            } else if (selectedUnit != null) {
+            }
+            // 2. 이미 유닛을 선택한 상태에서 다른 곳을 클릭한 경우
+            else if (selectedUnit != null) {
                 if (BoardManager.canMoveTo(selectedUnit, tx, ty, units)) {
+                    // --- 이동 프로세스 시작 ---
                     selectedUnit.setPosition(tx, ty);
                     processAutoAttack(playerTeam);
+
+                    // [핵심] 이동 직후 모든 선택 정보와 플래그를 세팅하여 즉시 클릭을 차단합니다.
                     selectedUnit = null;
+                    aiBusy = true;
+
                     turnManager.endTurn();
+                    // --- 이동 프로세스 종료 ---
                 } else {
+                    // 이동할 수 없는 곳을 누르면 선택 해제
                     selectedUnit = null;
                 }
             }
         }
     }
 
-    // 해당 팀 유닛들의 자동 공격 범위를 확인하여 공격 실행
     public void processAutoAttack(String team) {
-        // units.size를 직접 참조하는 인덱스 루프가 가장 안전합니다.
         for (int i = 0; i < units.size; i++) {
             Unit attacker = units.get(i);
             if (attacker != null && attacker.isAlive() && attacker.team.equals(team)) {
@@ -154,96 +177,81 @@ public class BattleScreen extends ScreenAdapter {
         }
     }
 
-    // 유닛 간의 대미지 계산 및 사망 상태 트리거
     public void performAttack(Unit attacker, Unit target) {
         if (target == null || !target.isAlive()) return;
 
-        String turn = turnManager.getCurrentTurn();
-        int dmg = attacker.team.equals(turn) ? attacker.stat.atk() : attacker.stat.counterAtk();
+        // 현재 턴의 주인인지 확인하여 공격력 또는 반격력 결정
+        int dmg = attacker.team.equals(turnManager.getCurrentTurn()) ? attacker.stat.atk() : attacker.stat.counterAtk();
 
         target.currentHp -= dmg;
 
         if (target.currentHp <= 0) {
             target.currentHp = 0;
+            // [중요] handleDeath를 호출하기 전에 상태를 DEAD로 먼저 바꾸지 않고
+            // 메서드 내부에서 처리하도록 흐름을 맞춥니다.
             handleDeath(attacker, target);
         }
     }
 
-    // 유닛 사망 시 DEAD 표식을 남기고 승리 조건 검사
     private void handleDeath(Unit attacker, Unit target) {
         target.status = Unit.DEAD;
 
+        // 왕(RULER)이 죽었을 때만 게임 종료 판정
         if ("왕의 위엄".equals(target.stat.skillName())) {
             gameOver = true;
             winner = attacker.team;
+            System.out.println("!!! 게임 종료 !!! 승리 팀: " + winner);
         }
-        System.out.println("[사망] " + target.team + " - " + target.name);
     }
 
-    // 화면 지우기 및 레이어 순서대로 렌더링 호출
-    private void draw() {
-        Gdx.gl.glClearColor(0.1f, 0.1f, 0.1f, 1);
-        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+        private void draw() {
+            Gdx.gl.glClearColor(0.1f, 0.1f, 0.1f, 1);
+            Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        shape.begin(ShapeRenderer.ShapeType.Line);
-        mapRenderer.drawGrid(hoveredGrid, turnManager.getCurrentTurn());
-        if (!gameOver && selectedUnit != null) {
-            mapRenderer.drawRangeOverlays(selectedUnit, units);
-        }
-        drawUnits();
-        shape.end();
-
-        game.batch.begin();
-        game.font.setColor(Color.WHITE);
-        game.font.draw(game.batch, "현재 턴: " + turnManager.getCurrentTurn(), 20, Gdx.graphics.getHeight() - 20);
-        game.font.draw(game.batch, "진영: " + playerTeam, 20, Gdx.graphics.getHeight() - 50);
-
-        if (selectedUnit != null) drawUnitCard();
-        if (gameOver) drawVictoryMessage();
-        game.batch.end();
-    }
-
-    // 살아있는 모든 유닛을 화면에 표시
-    private void drawUnits() {
-        for (Unit unit : units) {
-            if (!unit.isAlive()) continue;
-
-            Vector2 pos = IsoUtils.gridToScreen(unit.gridX, unit.gridY);
-            if (unit == selectedUnit) {
-                shape.setColor(Color.YELLOW);
-                shape.rect(pos.x - 7, pos.y - 2, 14, 24);
-            } else {
-                shape.setColor(unit.team.equals("HADES") ? Color.BLUE : Color.RED);
-                shape.rect(pos.x - 5, pos.y, 10, 20);
+            shape.begin(ShapeRenderer.ShapeType.Line);
+            mapRenderer.drawGrid(hoveredGrid, turnManager.getCurrentTurn());
+            if (!gameOver && selectedUnit != null) {
+                mapRenderer.drawRangeOverlays(selectedUnit, units);
             }
-            drawHpBar(pos, unit);
+            shape.end();
+
+            game.batch.begin();
+            for (Unit unit : units) {
+                if (unit.isAlive()) {
+                    unitRenderer.render(unit);
+                    if (unit == selectedUnit) drawSelectionHighlight(unit);
+                }
+            }
+
+            game.mainFont.setColor(Color.WHITE);
+            game.mainFont.draw(game.batch, "현재 턴: " + turnManager.getCurrentTurn(), 20, Gdx.graphics.getHeight() - 20);
+            game.mainFont.draw(game.batch, "진영: " + playerTeam, 20, Gdx.graphics.getHeight() - 50);
+
+            if (selectedUnit != null) drawUnitCard();
+            if (gameOver) drawVictoryMessage();
+            game.batch.end();
         }
+
+    private void drawSelectionHighlight(Unit unit) {
+        Vector2 pos = IsoUtils.gridToScreen(unit.gridX, unit.gridY);
+        game.batch.end();
+        shape.begin(ShapeRenderer.ShapeType.Line);
+        shape.setColor(Color.YELLOW);
+        shape.ellipse(pos.x - 20, pos.y - 12, 40, 20);
+        shape.end();
+        game.batch.begin();
     }
 
-    // 유닛 머리 위에 체력 바 표시
-    private void drawHpBar(Vector2 pos, Unit unit) {
-        float bW = 20f, bH = 3f;
-        shape.setColor(Color.BLACK);
-        shape.rect(pos.x - 10, pos.y + 25, bW, bH);
-        float hpR = (float) unit.currentHp / unit.stat.hp();
-        if (hpR > 0) {
-            shape.setColor(Color.GREEN);
-            shape.rect(pos.x - 10, pos.y + 25, bW * hpR, bH);
-        }
-    }
-
-    // 선택된 유닛의 상세 스탯 카드 UI 표시
     private void drawUnitCard() {
         float x = 20, y = 120;
-        game.font.setColor(Color.GOLD);
-        game.font.draw(game.batch, "[ " + selectedUnit.name + " ]", x, y);
-        game.font.setColor(Color.WHITE);
-        game.font.draw(game.batch, "체력: " + selectedUnit.currentHp + " / " + selectedUnit.stat.hp(), x, y - 25);
-        game.font.draw(game.batch, "공격력: " + selectedUnit.stat.atk(), x, y - 50);
-        game.font.draw(game.batch, "스킬: " + selectedUnit.stat.skillName(), x, y - 75);
+        game.mainFont.setColor(Color.GOLD);
+        game.mainFont.draw(game.batch, "[ " + selectedUnit.name + " ]", x, y);
+        game.mainFont.setColor(Color.WHITE);
+        game.mainFont.draw(game.batch, "체력: " + selectedUnit.currentHp + " / " + selectedUnit.stat.hp(), x, y - 25);
+        game.mainFont.draw(game.batch, "공격력: " + selectedUnit.stat.atk(), x, y - 50);
+        game.mainFont.draw(game.batch, "스킬: " + selectedUnit.stat.skillName(), x, y - 75);
     }
 
-    // 게임 종료 시 중앙에 승리 팀 메시지 출력
     private void drawVictoryMessage() {
         game.batch.end();
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -253,14 +261,15 @@ public class BattleScreen extends ScreenAdapter {
         shape.end();
         game.batch.begin();
 
-        game.font.getData().setScale(3.0f);
-        game.font.setColor(Color.YELLOW);
-        game.font.draw(game.batch, "VICTORY: " + winner + " TEAM!", 150, 420);
-        game.font.getData().setScale(1.0f);
+        game.mainFont.getData().setScale(1.0f);
+        game.mainFont.setColor(Color.YELLOW);
+        game.mainFont.draw(game.batch, "VICTORY: " + winner + " TEAM!", 150, 420);
+        game.mainFont.getData().setScale(1.0f);
     }
 
     @Override
     public void dispose() {
         if (shape != null) shape.dispose();
+        if (unitRenderer != null) unitRenderer.dispose();
     }
 }

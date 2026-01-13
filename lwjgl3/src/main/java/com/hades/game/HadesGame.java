@@ -6,6 +6,7 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.hades.game.screens.MenuScreen;
+import com.hades.game.utils.FontFactory;
 
 
 /*
@@ -15,16 +16,21 @@ import com.hades.game.screens.MenuScreen;
 public class HadesGame extends Game {
     // 여러 화면에서 공용으로 사용할 SpriteBatch입니다.
     public SpriteBatch batch;
-    public BitmapFont font; // 모든 화면에서 공유할 공용 폰트
+    // 두 종류의 공용 폰트 선언
+    public BitmapFont mainFont;   // 갈무리 (제목, 현재 턴 등 메인 UI용)
+    public BitmapFont detailFont; // 맑은 고딕 (유닛 정보, 설명 등 상세 내용용)
 
-    /* [메서드 설명] 게임이 실행될 때 최초 1회 호출됩니다. 초기 자원을 설정하고 첫 화면을 띄웁니다. */
     @Override
     public void create() {
         batch = new SpriteBatch();
 
-        /* 근본적 해결: 복잡한 로직 대신 팩토리를 통해 폰트 획득 (단 1줄) */
-        font = com.hades.game.utils.FontFactory.createKoreanFont(20, Color.WHITE);
-        // 게임 실행 시 가장 먼저 홈 화면(MenuScreen)을 표시하도록 설정합니다.
+        /* [핵심] FontFactory를 두 번 호출하여 서로 다른 폰트를 생성합니다. */
+        // 1. 갈무리 폰트 생성
+        mainFont = com.hades.game.utils.FontFactory.createFont("Galmuri14", 20, Color.WHITE, 1.0f);
+
+        // 2. 맑은 고딕 생성
+        detailFont = com.hades.game.utils.FontFactory.createFont("malgun", 16, Color.WHITE, 0);
+
         this.setScreen(new MenuScreen(this));
     }
 
@@ -38,8 +44,8 @@ public class HadesGame extends Game {
     @Override
     public void dispose() {
         if (batch != null) batch.dispose();
-        if (font != null) font.dispose(); // 공용 폰트 자원 해제
         // 현재 화면이 있다면 해당 화면의 자원도 해제합니다.
         if (getScreen() != null) getScreen().dispose();
     }
 }
+

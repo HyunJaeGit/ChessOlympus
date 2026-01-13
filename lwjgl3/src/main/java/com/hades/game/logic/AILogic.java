@@ -40,18 +40,25 @@ public class AILogic {
         }
 
         // [2단계] 최종 유효성 검증 (Validation Phase)
+        // 행동할 유닛과 대상이 모두 존재하고 살아있는지 확인합니다.
         if (bestActor != null && bestTarget != null && bestActor.isAlive() && bestTarget.isAlive()) {
 
-            // [3단계] 실행 (Action Phase) - 루프가 완전히 종료된 후 단 한번 수행
+            // [3단계] 실행 (Action Phase)
             System.out.println("[AI 결정] " + bestActor.name + " -> " + bestTarget.name + " 타겟팅");
 
+            // 유닛을 타겟 방향으로 1칸 이동시킵니다.
             moveUnit(bestActor, bestTarget, units);
 
+            // 이동 후, BattleScreen의 자동 공격 로직을 호출하여 전투를 처리합니다.
             if (screenObj instanceof BattleScreen) {
                 ((BattleScreen) screenObj).processAutoAttack(aiTeam);
             }
+        } else {
+            // 행동할 대상을 찾지 못한 경우에 대한 로그 (버그 추적용)
+            System.out.println("[AI 대기] 이번 턴에 행동할 적절한 타겟을 찾지 못했습니다.");
         }
 
+        // [중요] 어떤 상황에서도 AI 턴이 끝났음을 TurnManager에 알려 턴이 꼬이는 것을 방지합니다.
         turnManager.endTurn();
     }
 

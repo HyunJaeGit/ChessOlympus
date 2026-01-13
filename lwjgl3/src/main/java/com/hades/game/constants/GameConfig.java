@@ -1,19 +1,20 @@
 package com.hades.game.constants;
 
-
-// GameConfig : 게임 전반에 사용되는 물리적 수치와 설정값들을 관리
-// 7x8 격자 크기 및 쿼터뷰 타일의 비율을 정의
+/**
+ * [클래스 역할] 게임의 물리적 수치와 격자 설정을 관리합니다.
+ */
 public class GameConfig {
     // --- 격자 설정 ---
     public static final int BOARD_WIDTH = 7;
     public static final int BOARD_HEIGHT = 8;
 
-    // --- 쿼터뷰 타일 설정 (픽셀 단위) ---
-    /* 쿼터뷰 타일은 보통 너비가 높이의 2배일 때 가장 자연스럽습니다. */
-    public static final float TILE_WIDTH = 64f;
-    public static final float TILE_HEIGHT = 32f;
+    // --- 쿼터뷰 타일 설정 ---
+    /* 타일 크기로 시야 조절 */
+    public static final float TILE_WIDTH = 80f;
+    public static final float TILE_HEIGHT = 40f; // 너비의 절반 유지를 권장합니다.
 
-    // --- 화면 중앙 정렬을 위한 오프셋 (임시) ---
-    public static final float ORIGIN_X = 400f;
+    // --- 화면 중앙 정렬 오프셋 조정 ---
+    /* 타일이 커지면 전체 판이 우하단으로 치우칠 수 있으므로 ORIGIN 좌표를 조정해야 합니다. */
+    public static final float ORIGIN_X = 350f;
     public static final float ORIGIN_Y = 100f;
 }
