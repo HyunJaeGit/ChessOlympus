@@ -15,129 +15,147 @@ import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.hades.game.HadesGame;
 
-/**
- * [클래스 역할] 게임의 메인 메뉴 화면을 담당합니다.
- * 배경 이미지 출력, 진영 선택, 버튼 하이라이트 효과를 포함합니다.
- */
 public class MenuScreen extends ScreenAdapter {
     private final HadesGame game;
     private Stage stage;
     private Color bgColor;
-    private String selectedFaction = "HADES";
-    private Label factionStatusLabel;
     private Texture backgroundTexture;
+    private com.badlogic.gdx.audio.Music backgroundMusic; // 음악 객체 추가
+    private Label volStatusLabel; // 현재 볼륨을 숫자로 보여줄 라벨
 
     public MenuScreen(HadesGame game) {
         this.game = game;
         this.stage = new Stage(new ScreenViewport());
 
-        // 배경 이미지 로드 (assets/images/background/main.png)
+        // 배경 이미지 로드
         backgroundTexture = new Texture(Gdx.files.internal("images/background/main.png"));
         this.bgColor = new Color(0.05f, 0.05f, 0.1f, 1);
+
+        // 배경음악 설정
+        initMusic();
 
         Gdx.input.setInputProcessor(stage);
         initUI();
     }
 
-    // UI 구성 요소들을 생성하고 레이아웃을 배치합니다.
+    // 음악 파일을 로드하고 무한 반복 재생을 설정합니다.
+    private void initMusic() {
+        backgroundMusic = Gdx.audio.newMusic(Gdx.files.internal("music/bgm.mp3"));
+        backgroundMusic.setLooping(true); // 무한 반복
+        backgroundMusic.setVolume(0.2f);  // 볼륨 (0.0 ~ 1.0)
+        backgroundMusic.play();
+    }
+
     private void initUI() {
-        // 1. 메인 버튼들을 담을 테이블 (화면 중앙 정렬)
+        // 메인 버튼들을 담을 테이블
         Table mainTable = new Table();
-        mainTable.setFillParent(true); // 화면 전체 크기로 설정
-        mainTable.center();            // 내부 요소들을 중앙에 배치
+        mainTable.setFillParent(true);
+        mainTable.center();
         stage.addActor(mainTable);
 
-        // --- 타이틀 및 버튼 배치 (mainTable 사용) ---
-
-        // 1. 타이틀 및 부제목
+        // 1. 타이틀 (부제목 Zeus 제거 및 컨셉에 맞춰 수정)
         Label titleLabel = new Label("CHESS OLYMPUS", new Label.LabelStyle(game.titleFont, Color.GOLD));
-        Label subtitleLabel = new Label("Hades VS Zeus", new Label.LabelStyle(game.subtitleFont, Color.LIGHT_GRAY));
+        Label subtitleLabel = new Label("HADES VS ZEUS", new Label.LabelStyle(game.subtitleFont, Color.LIGHT_GRAY));
+
         mainTable.add(titleLabel).padBottom(5).row();
         mainTable.add(subtitleLabel).padBottom(40).row();
 
-        // 2. 진영 선택 상태창
-        factionStatusLabel = new Label("선택된 진영: " + selectedFaction, new Label.LabelStyle(game.mainFont, Color.WHITE));
-        mainTable.add(factionStatusLabel).padBottom(15).row();
+        // 1-1. 볼륨 조절 영역 (Slider 대신 텍스트 버튼 방식 - 스킨 파일이 없을 경우 대비)
+        Table volumeTable = new Table();
+        Label volLabel = new Label("BGM VOLUME", new Label.LabelStyle(game.mainFont, Color.WHITE));
+        Label volUp = new Label(" [ + ] ", new Label.LabelStyle(game.mainFont, Color.LIGHT_GRAY));
+        Label volDown = new Label(" [ - ] ", new Label.LabelStyle(game.mainFont, Color.LIGHT_GRAY));
+        volStatusLabel = new Label("20%", new Label.LabelStyle(game.mainFont, Color.WHITE));
 
-        // 3. 하데스 진영 선택 버튼
-        final Label hadesBtn = new Label("[ 하데스 진영 선택 ]", new Label.LabelStyle(game.mainFont, Color.VIOLET));
-        addHoverEffect(hadesBtn, Color.VIOLET, Color.WHITE);
-        hadesBtn.addListener(new ClickListener() {
+        addHoverEffect(volDown, Color.LIGHT_GRAY, Color.WHITE);
+        addHoverEffect(volUp, Color.LIGHT_GRAY, Color.WHITE);
+
+        // 볼륨 업 클릭 이벤트
+        volUp.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
-                selectedFaction = "HADES";
-                bgColor.set(0.05f, 0.05f, 0.1f, 1);
-                updateFactionStatus();
+                float nextVol = Math.min(1f, backgroundMusic.getVolume() + 0.1f);
+                backgroundMusic.setVolume(nextVol);
+                updateVolLabel();
             }
         });
-        mainTable.add(hadesBtn).padBottom(10).row();
 
-        // 4. 제우스 진영 선택 버튼
-        final Label zeusBtn = new Label("[ 제우스 진영 선택 ]", new Label.LabelStyle(game.mainFont, Color.YELLOW));
-        addHoverEffect(zeusBtn, Color.YELLOW, Color.WHITE);
-        zeusBtn.addListener(new ClickListener() {
+        // 볼륨 다운 클릭 이벤트
+        volDown.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
-                selectedFaction = "ZEUS";
-                bgColor.set(0.15f, 0.15f, 0.1f, 1);
-                updateFactionStatus();
+                float nextVol = Math.max(0f, backgroundMusic.getVolume() - 0.1f);
+                backgroundMusic.setVolume(nextVol);
+                updateVolLabel();
             }
         });
-        mainTable.add(zeusBtn).padBottom(20).row();
 
-        // 5. 게임 시작 버튼
+        volumeTable.add(volLabel).padRight(5);
+        volumeTable.add(volDown).padRight(5); // [-] 버튼
+        volumeTable.add(volStatusLabel).width(60); // 숫자 (중앙 정렬 유지용 width)
+        volumeTable.add(volUp).padLeft(5);   // [+] 버튼
+        mainTable.add(volumeTable).padBottom(30).row();
+
+        // 2. 게임 시작 버튼
         final Label startBtn = new Label("[ 게임 시작 ]", new Label.LabelStyle(game.mainFont, Color.CYAN));
-        addHoverEffect(startBtn, Color.CYAN, Color.WHITE);
+        addHoverEffect(startBtn, Color.CYAN, Color.GOLD);
         startBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
-                game.setScreen(new BattleScreen(game, selectedFaction));
+                // 영웅 선택 화면으로 바로 이동
+                game.setScreen(new HeroSelectionScreen(game, "HADES", backgroundMusic));
             }
         });
-        mainTable.add(startBtn).padBottom(60).row();
+        mainTable.add(startBtn).padBottom(20).row();
+
+        // 3. 종료 버튼
+        final Label exitBtn = new Label("[ 게임 종료 ]", new Label.LabelStyle(game.mainFont, Color.LIGHT_GRAY));
+        addHoverEffect(exitBtn, Color.LIGHT_GRAY, Color.RED);
+        exitBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                Gdx.app.exit();
+            }
+        });
+        mainTable.add(exitBtn).padBottom(60).row();
 
 
-        // 2. 하단 저작권 정보용 테이블 (별도로 생성하여 배치)
+        // 하단 저작권 정보용 테이블
         Table bottomTable = new Table();
         bottomTable.setFillParent(true);
-        bottomTable.bottom().padBottom(20); // 화면 하단에 딱 붙이고 위로 20px 여백
+        bottomTable.bottom().padBottom(20);
         stage.addActor(bottomTable);
 
-        // 6. 하단 저작권 정보 (bottomTable에 추가)
         Label infoLabel = new Label(
             "비영리/비홍보용 팬게임이며, 수익창출 및 무단 수정 배포를 금지합니다.\n" +
                 "모든 권리는 제작자 '데브케이'에 있습니다.\n" +
                 "문의: fatking25@kakao.com",
             new Label.LabelStyle(game.detailFont, Color.GRAY)
         );
-        infoLabel.setAlignment(com.badlogic.gdx.utils.Align.center); // 텍스트 중앙 정렬
-
-        // 이제 버튼이 커져도 bottomTable은 독립되어 있어 절대 밀려나지 않습니다.
+        infoLabel.setAlignment(com.badlogic.gdx.utils.Align.center);
         bottomTable.add(infoLabel);
     }
+    // 볼륨 업데이트
+    private void updateVolLabel() {
+        int volPercent = Math.round(backgroundMusic.getVolume() * 100);
+        volStatusLabel.setText(volPercent + "%");
+    }
 
-    /**
-     * [메서드 설명] 라벨에 마우스 오버 시 색상 변경 및 확대 효과를 부여합니다.
-     */
+    // 라벨에 마우스 오버 시 색상 변경 및 확대 효과
     private void addHoverEffect(final Label label, final Color originalColor, final Color hoverColor) {
         label.addListener(new InputListener() {
             @Override
             public void enter(InputEvent event, float x, float y, int pointer, Actor fromActor) {
-                label.setColor(hoverColor);     // 마우스 올리면 색상 변경
-                label.setFontScale(1.1f);      // 살짝 확대
+                label.setColor(hoverColor);
+                label.setFontScale(1.05f);
             }
 
             @Override
             public void exit(InputEvent event, float x, float y, int pointer, Actor toActor) {
-                label.setColor(originalColor);  // 마우스 나가면 원복
-                label.setFontScale(1.0f);      // 크기 원복
+                label.setColor(originalColor);
+                label.setFontScale(1.0f);
             }
         });
-    }
-
-    private void updateFactionStatus() {
-        factionStatusLabel.setText("선택된 진영: " + selectedFaction);
-        factionStatusLabel.setColor(selectedFaction.equals("HADES") ? Color.VIOLET : Color.YELLOW);
     }
 
     @Override
@@ -146,7 +164,6 @@ public class MenuScreen extends ScreenAdapter {
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
         game.batch.begin();
-        // 배경을 60% 밝기로 설정하여 텍스트가 더 잘 보이게 함
         game.batch.setColor(0.6f, 0.6f, 0.6f, 1f);
         game.batch.draw(backgroundTexture, 0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         game.batch.setColor(Color.WHITE);
