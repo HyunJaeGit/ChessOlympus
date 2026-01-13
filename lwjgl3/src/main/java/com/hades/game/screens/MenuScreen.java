@@ -4,6 +4,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.ScreenAdapter;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
@@ -45,15 +46,18 @@ public class MenuScreen extends ScreenAdapter {
         stage.addActor(table);
 
         // 1. 메인 타이틀
-        Label.LabelStyle titleStyle = new Label.LabelStyle(game.detailFont, Color.GOLD);
-        Label titleLabel = new Label("CHESS OLYMPUS : 하데스 vs 제우스", titleStyle);
-        titleLabel.setFontScale(1.5f);
-        table.add(titleLabel).padBottom(60).row();
+        Label.LabelStyle titleStyle = new Label.LabelStyle(game.titleFont, Color.GOLD);
+        Label.LabelStyle subtitleStyle = new Label.LabelStyle(game.subtitleFont, Color.LIGHT_GRAY);
+        Label titleLabel = new Label("CHESS OLYMPUS", titleStyle);
+        Label subtitleLabel = new Label("Hades VS Zeus", subtitleStyle);
+        // titleLabel.setFontScale(1.5f); 폰트를 강제로 늘리는 방식(깨짐)
+        table.add(titleLabel).padBottom(5).row();
+        table.add(subtitleLabel).padBottom(40).row(); // 부제목 추가 및 아래 여백 설정
 
         // 2. 진영 선택 상태창
         Label.LabelStyle statusStyle = new Label.LabelStyle(game.mainFont, Color.WHITE);
         factionStatusLabel = new Label("선택된 진영: " + selectedFaction, statusStyle);
-        table.add(factionStatusLabel).padBottom(30).row();
+        table.add(factionStatusLabel).padBottom(10).row();
 
         // 3. 진영 선택 버튼들 (HADES)
         Label.LabelStyle hadesStyle = new Label.LabelStyle(game.mainFont, Color.VIOLET);
@@ -66,7 +70,7 @@ public class MenuScreen extends ScreenAdapter {
                 updateFactionStatus();
             }
         });
-        table.add(hadesBtn).padBottom(15).row();
+        table.add(hadesBtn).padBottom(10).row();
 
         // 4. 진영 선택 버튼들 (ZEUS)
         Label.LabelStyle zeusStyle = new Label.LabelStyle(game.mainFont, Color.YELLOW);
@@ -79,10 +83,10 @@ public class MenuScreen extends ScreenAdapter {
                 updateFactionStatus();
             }
         });
-        table.add(zeusBtn).padBottom(40).row();
+        table.add(zeusBtn).padBottom(20).row();
 
         // 5. 게임 시작 버튼
-        Label.LabelStyle startStyle = new Label.LabelStyle(game.mainFont, Color.CYAN);
+        Label.LabelStyle startStyle = new Label.LabelStyle(game.font, Color.CYAN);
         Label startBtn = new Label("[ 게임 시작 ]", startStyle);
         startBtn.addListener(new ClickListener() {
             @Override
@@ -91,7 +95,7 @@ public class MenuScreen extends ScreenAdapter {
                 game.setScreen(new BattleScreen(game, selectedFaction));
             }
         });
-        table.add(startBtn).padBottom(80).row();
+        table.add(startBtn).padBottom(40).row();
 
         // 6. 하단 저작권 및 안내 문구
         Label.LabelStyle infoStyle = new Label.LabelStyle(game.detailFont, Color.GRAY);
@@ -101,8 +105,7 @@ public class MenuScreen extends ScreenAdapter {
                 "문의: fatking25@kakao.com",
             infoStyle
         );
-        infoLabel.setFontScale(0.8f);
-        table.add(infoLabel);
+        table.add(infoLabel).padTop(10);
     }
 
     // 진영이 바뀔 때마다 텍스트를 갱신

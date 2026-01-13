@@ -48,7 +48,7 @@ public class BattleScreen extends ScreenAdapter {
         shape = new ShapeRenderer();
         mapRenderer = new MapRenderer(shape);
         // UnitRenderer 생성 시 playerTeam 인자를 전달합니다.
-        unitRenderer = new UnitRenderer(game.batch, shape, game.detailFont, playerTeam);
+        unitRenderer = new UnitRenderer(game.batch, shape, game.font, playerTeam);
 
         units = new Array<>();
         turnManager = new TurnManager();
@@ -223,9 +223,9 @@ public class BattleScreen extends ScreenAdapter {
                 }
             }
 
-            game.mainFont.setColor(Color.WHITE);
-            game.mainFont.draw(game.batch, "현재 턴: " + turnManager.getCurrentTurn(), 20, Gdx.graphics.getHeight() - 20);
-            game.mainFont.draw(game.batch, "진영: " + playerTeam, 20, Gdx.graphics.getHeight() - 50);
+            game.font.setColor(Color.WHITE);
+            game.font.draw(game.batch, "현재 턴: " + turnManager.getCurrentTurn(), 20, Gdx.graphics.getHeight() - 20);
+            game.font.draw(game.batch, "진영: " + playerTeam, 20, Gdx.graphics.getHeight() - 50);
 
             if (selectedUnit != null) drawUnitCard();
             if (gameOver) drawVictoryMessage();
@@ -244,12 +244,12 @@ public class BattleScreen extends ScreenAdapter {
 
     private void drawUnitCard() {
         float x = 20, y = 120;
-        game.mainFont.setColor(Color.GOLD);
-        game.mainFont.draw(game.batch, "[ " + selectedUnit.name + " ]", x, y);
-        game.mainFont.setColor(Color.WHITE);
-        game.mainFont.draw(game.batch, "체력: " + selectedUnit.currentHp + " / " + selectedUnit.stat.hp(), x, y - 25);
-        game.mainFont.draw(game.batch, "공격력: " + selectedUnit.stat.atk(), x, y - 50);
-        game.mainFont.draw(game.batch, "스킬: " + selectedUnit.stat.skillName(), x, y - 75);
+        game.font.setColor(Color.GOLD);
+        game.font.draw(game.batch, "[ " + selectedUnit.name + " ]", x, y);
+        game.font.setColor(Color.WHITE);
+        game.font.draw(game.batch, "체력: " + selectedUnit.currentHp + " / " + selectedUnit.stat.hp(), x, y - 25);
+        game.font.draw(game.batch, "공격력: " + selectedUnit.stat.atk(), x, y - 50);
+        game.font.draw(game.batch, "스킬: " + selectedUnit.stat.skillName(), x, y - 75);
     }
 
     private void drawVictoryMessage() {
@@ -261,10 +261,10 @@ public class BattleScreen extends ScreenAdapter {
         shape.end();
         game.batch.begin();
 
-        game.mainFont.getData().setScale(1.0f);
-        game.mainFont.setColor(Color.YELLOW);
-        game.mainFont.draw(game.batch, "VICTORY: " + winner + " TEAM!", 150, 420);
-        game.mainFont.getData().setScale(1.0f);
+        game.font.getData().setScale(1.0f);
+        game.font.setColor(Color.YELLOW);
+        game.font.draw(game.batch, "VICTORY: " + winner + " TEAM!", 150, 420);
+        game.font.getData().setScale(1.0f);
     }
 
     @Override
