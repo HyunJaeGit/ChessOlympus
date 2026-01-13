@@ -18,31 +18,24 @@ import com.hades.game.logic.TurnManager;
 import com.hades.game.view.MapRenderer;
 
 /**
- * 실제 전투 게임 플레이를 처리하는 메인 스크린 클래스입니다.
- * 플레이어가 선택한 진영에 따라 입력을 제어하며, 상대 팀은 AI가 조종합니다.
+ * 전투 화면의 모든 로직과 유닛 수명 주기를 관리하는 메인 스크린 클래스입니다.
  */
 public class BattleScreen extends ScreenAdapter {
     private final HadesGame game;
     private ShapeRenderer shape;
     private Array<Unit> units;
-    private Array<Unit> deadPool;
     private Vector2 hoveredGrid = new Vector2(-1, -1);
     private Unit selectedUnit = null;
     private TurnManager turnManager;
     private MapRenderer mapRenderer;
 
-    private String playerTeam; // 플레이어가 선택한 진영 (HADES 또는 ZEUS)
-    private String aiTeam;     // 플레이어의 반대 진영
+    private String playerTeam;
+    private String aiTeam;
     private float aiDelay = 0;
     private boolean aiBusy = false;
     private boolean gameOver = false;
     private String winner = "";
 
-    /**
-     * [메서드 설명] 생성자에서 플레이어가 선택한 진영 정보를 받아 초기화합니다.
-     * @param game 메인 게임 인스턴스
-     * @param playerTeam 선택된 진영 이름
-     */
     public BattleScreen(HadesGame game, String playerTeam) {
         this.game = game;
         this.playerTeam = playerTeam;
@@ -50,20 +43,18 @@ public class BattleScreen extends ScreenAdapter {
         init();
     }
 
-    /* 초기 자원을 설정하고 게임 요소를 배치합니다. */
+    // 초기 자원 설정 및 팀 배치 수행
     private void init() {
         shape = new ShapeRenderer();
         mapRenderer = new MapRenderer(shape);
         units = new Array<>();
-        deadPool = new Array<>();
         turnManager = new TurnManager();
 
-        // 팀 배치 (진영 선택과 상관없이 고정된 위치에 소환)
         setupTeam("HADES", 0);
         setupTeam("ZEUS", GameConfig.BOARD_HEIGHT - 1);
     }
 
-    /* 팀별 유닛 소환 로직 */
+    // 지정된 진영의 유닛들을 시작 지점에 소환
     private void setupTeam(String team, int row) {
         UnitData.Stat[] stats = {
             UnitData.WARRIOR, UnitData.ALCHEMIST, UnitData.ASSASSIN,
@@ -80,40 +71,39 @@ public class BattleScreen extends ScreenAdapter {
     public void render(float delta) {
         update(delta);
 
-        // 사망 유닛 제거 처리
-        if (deadPool.size > 0) {
-            for (int i = 0; i < deadPool.size; i++) {
-                units.removeValue(deadPool.get(i), true);
-            }
-            deadPool.clear();
-        }
+        // DEAD 상태인 유닛들을 일괄 제거하여 메모리 및 참조 안전성 확보
+        cleanupDeadUnits();
 
         draw();
     }
 
-    // AI 턴 종료 후 딜레이를 확실히 리셋하여 무한 루프를 방지합니다.
+    // 사망 처리된 유닛들을 실제 배열에서 제거 (역순 순회)
+    private void cleanupDeadUnits() {
+        for (int i = units.size - 1; i >= 0; i--) {
+            Unit u = units.get(i);
+            if (u.status == Unit.DEAD) {
+                if (selectedUnit == u) selectedUnit = null;
+                units.removeIndex(i);
+            }
+        }
+    }
+
+    // 게임 로직 업데이트 및 턴제 상태 제어
     private void update(float delta) {
         if (gameOver) return;
 
         String currentTurn = turnManager.getCurrentTurn();
 
-        // 1. 플레이어의 턴인 경우
         if (currentTurn.equals(playerTeam)) {
             aiBusy = false;
-            aiDelay = 0; // 플레이어 턴 동안 AI 딜레이를 0으로 유지
+            aiDelay = 0;
             handleInput();
-        }
-        // 2. AI의 턴인 경우
-        else {
+        } else {
             aiDelay += delta;
-            // 1초 대기 후 AI 실행
             if (aiDelay >= 1.0f && !aiBusy) {
                 aiBusy = true;
                 try {
-                    // AI에게 현재 턴인 진영(aiTeam)을 조종하라고 명령
                     AILogic.processAITurn(units, aiTeam, turnManager, this);
-
-                    // [중요] AI 행동 직후 딜레이를 리셋하여 핑퐁 현상 방지
                     aiDelay = 0;
                 } catch (Exception e) {
                     System.err.println("[AI 오류] " + e.getMessage());
@@ -124,7 +114,7 @@ public class BattleScreen extends ScreenAdapter {
         }
     }
 
-    /* 마우스 클릭 입력 처리 */
+    // 마우스 좌표를 격자로 변환하여 유닛 선택 및 이동 처리
     private void handleInput() {
         if (!turnManager.isMyTurn(playerTeam) || aiBusy) return;
 
@@ -137,12 +127,9 @@ public class BattleScreen extends ScreenAdapter {
             int ty = (int) hoveredGrid.y;
             Unit clicked = BoardManager.getUnitAt(units, tx, ty);
 
-            // 내 유닛을 클릭한 경우 선택
-            if (clicked != null && clicked.team.equals(playerTeam)) {
+            if (clicked != null && clicked.isAlive() && clicked.team.equals(playerTeam)) {
                 selectedUnit = clicked;
-            }
-            // 빈 공간이나 적을 클릭하여 이동 시도
-            else if (selectedUnit != null) {
+            } else if (selectedUnit != null) {
                 if (BoardManager.canMoveTo(selectedUnit, tx, ty, units)) {
                     selectedUnit.setPosition(tx, ty);
                     processAutoAttack(playerTeam);
@@ -155,31 +142,45 @@ public class BattleScreen extends ScreenAdapter {
         }
     }
 
+    // 해당 팀 유닛들의 자동 공격 범위를 확인하여 공격 실행
     public void processAutoAttack(String team) {
+        // units.size를 직접 참조하는 인덱스 루프가 가장 안전합니다.
         for (int i = 0; i < units.size; i++) {
             Unit attacker = units.get(i);
-            if (attacker != null && attacker.currentHp > 0 && attacker.team.equals(team)) {
+            if (attacker != null && attacker.isAlive() && attacker.team.equals(team)) {
                 Unit target = BoardManager.findBestTargetInRange(attacker, units);
                 if (target != null) performAttack(attacker, target);
             }
         }
     }
 
+    // 유닛 간의 대미지 계산 및 사망 상태 트리거
     public void performAttack(Unit attacker, Unit target) {
+        if (target == null || !target.isAlive()) return;
+
         String turn = turnManager.getCurrentTurn();
         int dmg = attacker.team.equals(turn) ? attacker.stat.atk() : attacker.stat.counterAtk();
+
         target.currentHp -= dmg;
-        if (target.currentHp <= 0) handleDeath(attacker, target);
+
+        if (target.currentHp <= 0) {
+            target.currentHp = 0;
+            handleDeath(attacker, target);
+        }
     }
 
+    // 유닛 사망 시 DEAD 표식을 남기고 승리 조건 검사
     private void handleDeath(Unit attacker, Unit target) {
+        target.status = Unit.DEAD;
+
         if ("왕의 위엄".equals(target.stat.skillName())) {
             gameOver = true;
             winner = attacker.team;
         }
-        if (!deadPool.contains(target, true)) deadPool.add(target);
+        System.out.println("[사망] " + target.team + " - " + target.name);
     }
 
+    // 화면 지우기 및 레이어 순서대로 렌더링 호출
     private void draw() {
         Gdx.gl.glClearColor(0.1f, 0.1f, 0.1f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
@@ -193,20 +194,19 @@ public class BattleScreen extends ScreenAdapter {
         shape.end();
 
         game.batch.begin();
-        // game.font를 사용하여 그리기 (BattleScreen의 지역 변수 font 제거)
         game.font.setColor(Color.WHITE);
         game.font.draw(game.batch, "현재 턴: " + turnManager.getCurrentTurn(), 20, Gdx.graphics.getHeight() - 20);
-        game.font.draw(game.batch, "당신의 진영: " + playerTeam, 20, Gdx.graphics.getHeight() - 50);
+        game.font.draw(game.batch, "진영: " + playerTeam, 20, Gdx.graphics.getHeight() - 50);
 
         if (selectedUnit != null) drawUnitCard();
         if (gameOver) drawVictoryMessage();
         game.batch.end();
     }
 
+    // 살아있는 모든 유닛을 화면에 표시
     private void drawUnits() {
-        for (int i = 0; i < units.size; i++) {
-            Unit unit = units.get(i);
-            if (unit.currentHp <= 0) continue;
+        for (Unit unit : units) {
+            if (!unit.isAlive()) continue;
 
             Vector2 pos = IsoUtils.gridToScreen(unit.gridX, unit.gridY);
             if (unit == selectedUnit) {
@@ -220,6 +220,7 @@ public class BattleScreen extends ScreenAdapter {
         }
     }
 
+    // 유닛 머리 위에 체력 바 표시
     private void drawHpBar(Vector2 pos, Unit unit) {
         float bW = 20f, bH = 3f;
         shape.setColor(Color.BLACK);
@@ -231,6 +232,7 @@ public class BattleScreen extends ScreenAdapter {
         }
     }
 
+    // 선택된 유닛의 상세 스탯 카드 UI 표시
     private void drawUnitCard() {
         float x = 20, y = 120;
         game.font.setColor(Color.GOLD);
@@ -241,6 +243,7 @@ public class BattleScreen extends ScreenAdapter {
         game.font.draw(game.batch, "스킬: " + selectedUnit.stat.skillName(), x, y - 75);
     }
 
+    // 게임 종료 시 중앙에 승리 팀 메시지 출력
     private void drawVictoryMessage() {
         game.batch.end();
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -259,6 +262,5 @@ public class BattleScreen extends ScreenAdapter {
     @Override
     public void dispose() {
         if (shape != null) shape.dispose();
-        // font.dispose()는 HadesGame에서 처리하므로 여기서 하지 않습니다.
     }
 }

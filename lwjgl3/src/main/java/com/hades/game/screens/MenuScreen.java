@@ -46,8 +46,8 @@ public class MenuScreen extends ScreenAdapter {
 
         // 1. 메인 타이틀
         Label.LabelStyle titleStyle = new Label.LabelStyle(game.font, Color.GOLD);
-        Label titleLabel = new Label("하데스 체스 (HADES CHESS)", titleStyle);
-        titleLabel.setFontScale(2.5f);
+        Label titleLabel = new Label("CHESS OLYMPUS : 하데스 vs 제우스", titleStyle);
+        titleLabel.setFontScale(1.5f);
         table.add(titleLabel).padBottom(60).row();
 
         // 2. 진영 선택 상태창
@@ -96,8 +96,9 @@ public class MenuScreen extends ScreenAdapter {
         // 6. 하단 저작권 및 안내 문구
         Label.LabelStyle infoStyle = new Label.LabelStyle(game.font, Color.GRAY);
         Label infoLabel = new Label(
-            "비영리 팬게임이며 모든 권리는 Supergiant Games에 있습니다.\n" +
-                "진영을 선택한 후 게임 시작 버튼을 눌러주세요.",
+            "비영리/비홍보용 팬게임이며, 수익창출 및 무단 수정 배포를 금지합니다.\n" +
+                "모든 권리는 제작자 '데브케이'에 있습니다.\n" +
+                "문의: fatking25@kakao.com",
             infoStyle
         );
         infoLabel.setFontScale(0.8f);

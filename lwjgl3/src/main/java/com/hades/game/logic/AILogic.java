@@ -5,40 +5,48 @@ import com.hades.game.entities.Unit;
 import com.badlogic.gdx.math.MathUtils;
 import com.hades.game.screens.BattleScreen;
 
-/* AI 의사결정 및 유닛 이동을 담당하는 클래스입니다. */
+/**
+ * AI의 의사결정과 실행 단계를 명확히 분리하여
+ * 중첩 Iterator 에러 및 데이터 충돌을 방지하는 클래스입니다.
+ */
 public class AILogic {
     private static final int MAX_ITER = 50;
 
-    /* [메서드 설명] AI의 턴을 처리합니다. 전략을 선택하고 유닛을 이동시킨 후 협공을 요청합니다. */
+    // AI 턴 처리: 탐색 -> 결정 -> 실행 순서를 엄격히 따름
     public static void processAITurn(Array<Unit> units, String aiTeam, TurnManager turnManager, Object screenObj) {
         String strategy = getStrategy();
         System.out.println("\n=== [" + aiTeam + "] 전략: " + strategy + " ===");
 
-        Unit actor = null;
-        Unit target = null;
+        // [1단계] 탐색 및 결정 (Thinking Phase)
+        Unit bestActor = null;
+        Unit bestTarget = null;
 
-        // 1. 전략별 유닛 선발
         if ("암살형".equals(strategy)) {
-            target = getWeakest(units, aiTeam);
-            if (target != null) actor = getClosest(units, aiTeam, target);
+            bestTarget = getWeakest(units, aiTeam);
+            if (bestTarget != null) bestActor = getClosest(units, aiTeam, bestTarget);
         } else if ("희생형".equals(strategy)) {
             Unit bait = getBait(units, aiTeam);
             if (bait != null) {
-                target = getTarget(bait, units);
-                if (target != null) actor = getAlly(units, aiTeam, bait, target);
+                bestTarget = getTarget(bait, units);
+                if (bestTarget != null) bestActor = getAlly(units, aiTeam, bait, bestTarget);
             }
         }
 
-        // 2. 기본 고효율 쌍 선발
-        if (actor == null) {
-            Object[] best = getBest(units, aiTeam);
-            actor = (Unit) best[0];
-            target = (Unit) best[1];
+        // 특정 전략에서 후보를 못 찾았다면 기본 고효율 쌍 탐색
+        if (bestActor == null) {
+            Object[] bestPair = getBest(units, aiTeam);
+            bestActor = (Unit) bestPair[0];
+            bestTarget = (Unit) bestPair[1];
         }
 
-        // 3. 이동 및 협공 실행
-        if (actor != null && target != null) {
-            moveUnit(actor, target, units);
+        // [2단계] 최종 유효성 검증 (Validation Phase)
+        if (bestActor != null && bestTarget != null && bestActor.isAlive() && bestTarget.isAlive()) {
+
+            // [3단계] 실행 (Action Phase) - 루프가 완전히 종료된 후 단 한번 수행
+            System.out.println("[AI 결정] " + bestActor.name + " -> " + bestTarget.name + " 타겟팅");
+
+            moveUnit(bestActor, bestTarget, units);
+
             if (screenObj instanceof BattleScreen) {
                 ((BattleScreen) screenObj).processAutoAttack(aiTeam);
             }
@@ -47,7 +55,7 @@ public class AILogic {
         turnManager.endTurn();
     }
 
-    /* 최적의 타겟을 찾는 루프입니다. 인덱스 기반으로 중첩 루프 에러를 방지합니다. */
+    // 전수 조사를 통해 가장 효율적인 공격 유닛과 대상 선정 (중첩 인덱스 루프)
     private static Object[] getBest(Array<Unit> units, String aiTeam) {
         Unit bestA = null, bestT = null;
         int maxS = -10000;
@@ -55,24 +63,27 @@ public class AILogic {
 
         for (int i = 0; i < units.size; i++) {
             Unit a = units.get(i);
-            if (a == null || a.currentHp <= 0 || !a.team.equals(aiTeam)) continue;
+            if (a == null || !a.isAlive() || !a.team.equals(aiTeam)) continue;
 
             for (int j = 0; j < units.size; j++) {
                 if (++count > MAX_ITER) break;
-
                 Unit t = units.get(j);
-                if (t == null || t.currentHp <= 0 || t.team.equals(aiTeam)) continue;
+                if (t == null || !t.isAlive() || t.team.equals(aiTeam)) continue;
 
                 if (canMove(a, t, units)) {
                     int s = evalAction(a, t, units);
-                    if (s > maxS) { maxS = s; bestA = a; bestT = t; }
+                    if (s > maxS) {
+                        maxS = s;
+                        bestA = a;
+                        bestT = t;
+                    }
                 }
             }
-            if (count > MAX_ITER) break;
         }
         return new Object[]{bestA, bestT};
     }
 
+    // 행동의 가치를 평가하여 점수 반환
     private static int evalAction(Unit actor, Unit target, Array<Unit> units) {
         int dist = Math.abs(actor.gridX - target.gridX) + Math.abs(actor.gridY - target.gridY);
         int val = target.stat.value();
@@ -88,33 +99,41 @@ public class AILogic {
         return score;
     }
 
-    /* 가장 체력이 낮은 적을 찾습니다. 인덱스 루프를 사용하여 안정성을 높였습니다. */
+    // 체력이 가장 낮은 적 탐색
     private static Unit getWeakest(Array<Unit> units, String aiTeam) {
         Unit weak = null;
         int minHp = Integer.MAX_VALUE;
         for (int i = 0; i < units.size; i++) {
             Unit u = units.get(i);
-            if (u.currentHp > 0 && !u.team.equals(aiTeam)) {
-                if (u.currentHp < minHp) { minHp = u.currentHp; weak = u; }
+            if (u != null && u.isAlive() && !u.team.equals(aiTeam)) {
+                if (u.currentHp < minHp) {
+                    minHp = u.currentHp;
+                    weak = u;
+                }
             }
         }
         return weak;
     }
 
+    // 타겟과 가장 가까운 아군 탐색
     private static Unit getClosest(Array<Unit> units, String aiTeam, Unit target) {
         Unit close = null;
         int minDist = Integer.MAX_VALUE;
         for (int i = 0; i < units.size; i++) {
             Unit u = units.get(i);
-            if (u.currentHp <= 0 || !u.team.equals(aiTeam)) continue;
+            if (u == null || !u.isAlive() || !u.team.equals(aiTeam)) continue;
             if (canMove(u, target, units)) {
                 int d = Math.abs(u.gridX - target.gridX) + Math.abs(u.gridY - target.gridY);
-                if (d < minDist) { minDist = d; close = u; }
+                if (d < minDist) {
+                    minDist = d;
+                    close = u;
+                }
             }
         }
         return close;
     }
 
+    // 이동 가능 여부 판정
     private static boolean canMove(Unit actor, Unit target, Array<Unit> units) {
         int dx = Integer.compare(target.gridX, actor.gridX);
         int dy = Integer.compare(target.gridY, actor.gridY);
@@ -122,6 +141,7 @@ public class AILogic {
             (dy != 0 && BoardManager.canMoveTo(actor, actor.gridX, actor.gridY + dy, units));
     }
 
+    // 타겟 방향으로 유닛 이동 실행
     private static void moveUnit(Unit actor, Unit target, Array<Unit> units) {
         int dx = Integer.compare(target.gridX, actor.gridX);
         int dy = Integer.compare(target.gridY, actor.gridY);
@@ -131,46 +151,59 @@ public class AILogic {
             actor.setPosition(actor.gridX, actor.gridY + dy);
     }
 
+    // 체력이 낮은 아군 미끼 탐색
     private static Unit getBait(Array<Unit> units, String aiTeam) {
         Unit candidate = null;
         float minR = 2.0f;
         for (int i = 0; i < units.size; i++) {
             Unit u = units.get(i);
-            if (u.currentHp > 0 && u.team.equals(aiTeam) && !"왕의 위엄".equals(u.stat.skillName())) {
+            if (u != null && u.isAlive() && u.team.equals(aiTeam) && !"왕의 위엄".equals(u.stat.skillName())) {
                 float r = (float) u.currentHp / u.stat.hp();
-                if (r < minR) { minR = r; candidate = u; }
+                if (r < minR) {
+                    minR = r;
+                    candidate = u;
+                }
             }
         }
         return candidate;
     }
 
+    // 특정 유닛에게 가장 적합한 공격 대상 탐색
     private static Unit getTarget(Unit actor, Array<Unit> units) {
         Unit best = null;
         int maxS = -10000;
         for (int i = 0; i < units.size; i++) {
             Unit u = units.get(i);
-            if (u.currentHp <= 0 || u.team.equals(actor.team)) continue;
+            if (u == null || !u.isAlive() || u.team.equals(actor.team)) continue;
             int s = evalAction(actor, u, units);
-            if (s > maxS) { maxS = s; best = u; }
+            if (s > maxS) {
+                maxS = s;
+                best = u;
+            }
         }
         return best;
     }
 
+    // 협공을 위한 아군 탐색
     private static Unit getAlly(Array<Unit> units, String aiTeam, Unit bait, Unit target) {
         Unit best = null;
         int minDist = Integer.MAX_VALUE;
         for (int i = 0; i < units.size; i++) {
             Unit u = units.get(i);
-            if (u.currentHp > 0 && u.team.equals(aiTeam) && u != bait && !"왕의 위엄".equals(u.stat.skillName())) {
+            if (u != null && u.isAlive() && u.team.equals(aiTeam) && u != bait && !"왕의 위엄".equals(u.stat.skillName())) {
                 if (canMove(u, target, units)) {
                     int d = Math.abs(u.gridX - target.gridX) + Math.abs(u.gridY - target.gridY);
-                    if (d < minDist) { minDist = d; best = u; }
+                    if (d < minDist) {
+                        minDist = d;
+                        best = u;
+                    }
                 }
             }
         }
         return best;
     }
 
+    // 이번 턴의 성향 결정
     private static String getStrategy() {
         float roll = MathUtils.random(0f, 100f);
         if (roll < 20) return "암살형";
