@@ -123,7 +123,7 @@ public class HeroSelectionScreen extends ScreenAdapter {
         content.pad(10);
 
         // [테스트용 코드] 이 한 줄로 테이블의 모든 셀 경계선이 보입니다.
-        content.setDebug(true);
+        // content.setDebug(true);
 
         // SkillData에서 해당 유닛의 스킬 정보 가져오기
         SkillData.Skill skill = SkillData.get(stat.skillName());

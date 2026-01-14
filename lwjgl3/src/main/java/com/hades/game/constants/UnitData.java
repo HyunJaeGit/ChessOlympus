@@ -54,6 +54,6 @@ public class UnitData {
     public static final Stat[] STATS_HADES = {SOM_JUMEOK, KIMA, CHAN_NA, THING_GYUL, YEON_CHOROK};
 
     // 제우스 스테이지별 보스 리스트 (index 0~6 순서대로 스테이지 1~7 매칭)
-    public static final String[] NAMES_ZEUS = {"코코미", "히누히누", "윤이제", "하루비", "시몽", "마로니", "고세구"};
+    public static final String[] NAMES_ZEUS = {"데메테르", "헤스티아", "아테나", "아르테미스", "헤라", "아프로디테", "제우스"};
     public static final Stat[] STATS_ZEUS = {COCO_MI, HINU_HINU, YOON_IJE, HARU_BI, SI_MONG, MA_RONI, GO_SEGU};
 }

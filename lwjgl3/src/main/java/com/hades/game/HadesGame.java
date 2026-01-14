@@ -2,39 +2,43 @@ package com.hades.game;
 
 import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.audio.Music; // [추가] 배경음악용
 import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.hades.game.constants.GameConfig; // [추가] 설정값 참조
 import com.hades.game.screens.MenuScreen;
 import com.hades.game.utils.FontFactory;
 
 /**
- * [클래스 역할] 게임의 메인 진입점이며 공용 자원(폰트, 사운드)을 관리합니다.
- * 해상도 설정은 GameConfig를 참조하여 중앙 집중식으로 관리합니다.
+ * [클래스 역할] 게임의 메인 진입점이며 공용 자원(폰트, 사운드, BGM)을 관리합니다.
  */
 public class HadesGame extends Game {
-    /* [수정] 직접 정의했던 VIRTUAL_WIDTH/HEIGHT 상수를 삭제했습니다.
-       앞으로는 GameConfig.VIRTUAL_WIDTH 형식을 사용합니다. */
 
     public SpriteBatch batch;
-    public BitmapFont font, mainFont, detailFont, titleFont, subtitleFont, unitFont, detailFont2;
+    public BitmapFont font, mainFont, detailFont, titleFont, subtitleFont, unitFont, detailFont2, unitFont2, unitFont3;
     public Sound clickSound;
+
+    // [추가] 배경음악 관리용 객체
+    public Music menuBgm;   // 메뉴 화면 음악 (bgm.mp3)
+    public Music battleBgm; // 전투 화면 음악 (bgm-battle.mp3)
 
     @Override
     public void create() {
         batch = new SpriteBatch();
 
-        /* [메서드 설명] FontFactory를 통해 각기 다른 스타일의 폰트 자원을 생성합니다. */
+        // 폰트 자원 생성
         titleFont = FontFactory.createFont("Galmuri14", 66, Color.GOLD, 6.0f, Color.BLACK, new Color(0,0,0,0.5f));
         subtitleFont = FontFactory.createFont("Galmuri14", 44, Color.LIGHT_GRAY, 4.0f);
         mainFont = FontFactory.createFont("Galmuri14", 36, Color.WHITE, 2.5f);
         detailFont = FontFactory.createFont("KERISBAEUM_L", 28, Color.WHITE, 2.0f);
-        unitFont = FontFactory.createFont("KERISBAEUM_L", 22, Color.WHITE, 2.0f);
+        unitFont = FontFactory.createFont("KERISBAEUM_L", 20, Color.WHITE, 2.0f);
+        unitFont2 = FontFactory.createFont("Galmuri14", 26, Color.WHITE, 2.0f);
+        unitFont3 = FontFactory.createFont("KERISBAEUM_L", 18, Color.WHITE, 2.0f);
         detailFont2 = FontFactory.createFont("KERISBAEUM_L", 32, Color.WHITE, 2.0f);
         font = mainFont;
 
+        // 효과음 로드
         String soundPath = "music/click.wav";
         if (Gdx.files.internal(soundPath).exists()) {
             try {
@@ -44,13 +48,30 @@ public class HadesGame extends Game {
             }
         }
 
+        // [추가] 배경음악 로드 및 설정
+        loadBackgroundMusic();
+
+        // 초기 화면 설정 (MenuScreen에서 menuBgm 재생 시작 예정)
         this.setScreen(new MenuScreen(this));
     }
 
-    /**
-     * [메서드 설명] 효과음 재생을 처리하며, 재생 실패 시 시스템 오류를 방지합니다.
-     * @param pitch 재생 속도 및 높낮이 조절
-     */
+    // [추가] 배경음악 리소스 로드 메서드
+    private void loadBackgroundMusic() {
+        // 메뉴 음악 (bgm.mp3)
+        if (Gdx.files.internal("music/bgm.mp3").exists()) {
+            menuBgm = Gdx.audio.newMusic(Gdx.files.internal("music/bgm.mp3"));
+            menuBgm.setLooping(true);
+            menuBgm.setVolume(0.5f);
+        }
+
+        // 배틀 음악 (bgm-battle.mp3)
+        if (Gdx.files.internal("music/bgm-battle.mp3").exists()) {
+            battleBgm = Gdx.audio.newMusic(Gdx.files.internal("music/bgm-battle.mp3"));
+            battleBgm.setLooping(true);
+            battleBgm.setVolume(0.4f);
+        }
+    }
+
     public void playClick(float pitch) {
         if (clickSound != null) {
             long id = clickSound.play(1.0f, pitch, 0);
@@ -66,15 +87,25 @@ public class HadesGame extends Game {
 
     @Override
     public void dispose() {
+        // 폰트 및 그래픽 자원 해제
         if (batch != null) batch.dispose();
         if (mainFont != null) mainFont.dispose();
         if (detailFont != null) detailFont.dispose();
         if (unitFont != null) unitFont.dispose();
         if (titleFont != null) titleFont.dispose();
         if (subtitleFont != null) subtitleFont.dispose();
-        if (clickSound != null) clickSound.dispose();
 
-        /* [설명] 현재 설정된 스크린의 자원도 함께 해제합니다. */
+        // 사운드 및 음악 자원 해제
+        if (clickSound != null) clickSound.dispose();
+        if (menuBgm != null) {
+            menuBgm.stop();
+            menuBgm.dispose();
+        }
+        if (battleBgm != null) {
+            battleBgm.stop();
+            battleBgm.dispose();
+        }
+
         if (getScreen() != null) getScreen().dispose();
     }
 }
