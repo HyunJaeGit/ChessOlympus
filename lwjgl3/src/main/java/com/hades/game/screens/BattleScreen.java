@@ -6,7 +6,9 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.hades.game.HadesGame;
 import com.hades.game.constants.GameConfig;
 import com.hades.game.constants.UnitData;
@@ -19,11 +21,13 @@ import com.hades.game.view.MapRenderer;
 import com.hades.game.view.UnitRenderer;
 
 /**
- * [클래스 역할] 전투 화면을 담당하며, 선택한 영웅과 병사들을 배치하고 스테이지를 관리합니다.
+ * [클래스 역할] 전투 화면의 핵심 로직을 담당하며, 아이소메트릭 좌표계 기반의 유닛 이동,
+ * 전투 진행, AI 턴 처리 및 승리 조건을 관리합니다.
  */
 public class BattleScreen extends ScreenAdapter {
     private final HadesGame game;
     private ShapeRenderer shape;
+    private Stage stage;
     private Array<Unit> units;
     private Vector2 hoveredGrid = new Vector2(-1, -1);
     private Unit selectedUnit = null;
@@ -33,8 +37,6 @@ public class BattleScreen extends ScreenAdapter {
 
     private final String playerTeam;
     private final String aiTeam;
-
-    // --- 추가된 데이터 필드 ---
     private final String heroName;
     private final UnitData.Stat heroStat;
     private int stageLevel;
@@ -44,9 +46,6 @@ public class BattleScreen extends ScreenAdapter {
     private boolean gameOver = false;
     private String winner = "";
 
-    /**
-     * [수정] HeroSelectionScreen에서 전달하는 인자(영웅 정보, 스테이지 번호)를 받도록 생성자를 변경했습니다.
-     */
     public BattleScreen(HadesGame game, String playerTeam, String heroName, UnitData.Stat heroStat, int stageLevel) {
         this.game = game;
         this.playerTeam = playerTeam;
@@ -54,41 +53,44 @@ public class BattleScreen extends ScreenAdapter {
         this.heroStat = heroStat;
         this.stageLevel = stageLevel;
         this.aiTeam = playerTeam.equals("HADES") ? "ZEUS" : "HADES";
+
+        /**
+         * [수정] HadesGame.VIRTUAL_WIDTH 대신 GameConfig.VIRTUAL_WIDTH를 사용합니다.
+         */
+        this.stage = new Stage(new FitViewport(GameConfig.VIRTUAL_WIDTH, GameConfig.VIRTUAL_HEIGHT));
+
         init();
     }
 
     private void init() {
         shape = new ShapeRenderer();
         mapRenderer = new MapRenderer(shape);
-        unitRenderer = new UnitRenderer(game.batch, shape, game.font, playerTeam);
-
+        unitRenderer = new UnitRenderer(game.batch, shape, game.unitFont, playerTeam);
         units = new Array<>();
         turnManager = new TurnManager();
 
-        // [수정] 기존 setupTeam 대신 새로운 배치 로직 호출
         setupBattleUnits();
     }
 
-    /**
-     * [신규] 영웅 1명 + 병사 6명 시스템에 맞게 유닛을 배치합니다.
-     */
     private void setupBattleUnits() {
-        // 1. 플레이어 팀 배치 (0번 행)
-        units.add(new Unit(heroName, playerTeam, heroStat, 3, 0)); // 영웅 중앙 배치
+        units.clear();
+        units.add(new Unit(heroName, playerTeam, heroStat, 3, 0));
+
         for (int x = 0; x < GameConfig.BOARD_WIDTH; x++) {
             if (x == 3) continue;
-            units.add(new Unit("병사", playerTeam, UnitData.SOLDIER, x, 0));
+            units.add(new Unit("하데스 병사", playerTeam, UnitData.HADES_SOLDIER, x, 0));
         }
 
-        // 2. 적 팀 배치 (마지막 행)
         int enemyRow = GameConfig.BOARD_HEIGHT - 1;
-        String[] enemyPool = aiTeam.equals("HADES") ? UnitData.NAMES_HADES : UnitData.NAMES_ZEUS;
-        String bossName = enemyPool[(stageLevel - 1) % enemyPool.length];
+        int bossIdx = Math.min(stageLevel - 1, UnitData.STATS_ZEUS.length - 1);
+        UnitData.Stat bossStat = UnitData.STATS_ZEUS[bossIdx];
+        String bossName = UnitData.NAMES_ZEUS[bossIdx];
 
-        units.add(new Unit(bossName, aiTeam, UnitData.RULER, 3, enemyRow)); // 적 킹(보스)
+        units.add(new Unit(bossName, aiTeam, bossStat, 3, enemyRow));
+
         for (int x = 0; x < GameConfig.BOARD_WIDTH; x++) {
             if (x == 3) continue;
-            units.add(new Unit("적 병사", aiTeam, UnitData.SOLDIER, x, enemyRow));
+            units.add(new Unit("제우스 병사", aiTeam, UnitData.ZEUS_SOLDIER, x, enemyRow));
         }
     }
 
@@ -96,17 +98,114 @@ public class BattleScreen extends ScreenAdapter {
     public void render(float delta) {
         update(delta);
         cleanupDeadUnits();
+
+        /**
+         * [수정] 뷰포트 카메라 시점 동기화
+         */
+        game.batch.setProjectionMatrix(stage.getViewport().getCamera().combined);
+        shape.setProjectionMatrix(stage.getViewport().getCamera().combined);
+
         draw();
     }
 
-    private void cleanupDeadUnits() {
-        for (int i = units.size - 1; i >= 0; i--) {
-            Unit u = units.get(i);
-            if (u.status == Unit.DEAD) {
-                if (selectedUnit == u) selectedUnit = null;
-                units.removeIndex(i);
+    private void handleInput() {
+        if (!turnManager.getCurrentTurn().equals(playerTeam) || aiBusy || gameOver) return;
+
+        Vector2 touchPos = new Vector2(Gdx.input.getX(), Gdx.input.getY());
+        stage.getViewport().unproject(touchPos);
+
+        float mx = touchPos.x;
+        float my = touchPos.y;
+
+        hoveredGrid = IsoUtils.screenToGrid(mx, my);
+
+        if (Gdx.input.justTouched()) {
+            if (selectedUnit != null) {
+                int tx = (int) hoveredGrid.x;
+                int ty = (int) hoveredGrid.y;
+
+                if (tx >= 0 && ty >= 0 && BoardManager.canMoveTo(selectedUnit, tx, ty, units)) {
+                    selectedUnit.setPosition(tx, ty);
+                    processAutoAttack(playerTeam);
+                    selectedUnit = null;
+                    aiBusy = true;
+                    turnManager.endTurn();
+                    return;
+                }
+            }
+
+            Unit clickedUnit = null;
+            for (Unit u : units) {
+                if (u.isAlive() && unitRenderer.isMouseInsideHitbox(u, mx, my)) {
+                    clickedUnit = u;
+                    break;
+                }
+            }
+
+            if (clickedUnit != null && clickedUnit.team.equals(playerTeam)) {
+                selectedUnit = clickedUnit;
+            } else {
+                selectedUnit = null;
             }
         }
+    }
+
+    private void draw() {
+        Gdx.gl.glClearColor(0.1f, 0.1f, 0.1f, 1);
+        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+
+        shape.begin(ShapeRenderer.ShapeType.Line);
+        mapRenderer.drawGrid(hoveredGrid, turnManager.getCurrentTurn());
+        if (!gameOver && selectedUnit != null) {
+            mapRenderer.drawRangeOverlays(selectedUnit, units);
+        }
+        shape.end();
+
+        game.batch.begin();
+        for (Unit unit : units) {
+            if (unit.isAlive()) {
+                unitRenderer.render(unit, selectedUnit);
+            }
+        }
+
+        /**
+         * [수정] UI 텍스트 위치 계산 시 GameConfig 참조
+         */
+        game.detailFont.setColor(Color.WHITE);
+        game.detailFont.draw(game.batch, "STAGE " + stageLevel, 20, GameConfig.VIRTUAL_HEIGHT - 20);
+        game.detailFont.draw(game.batch, "HERO: " + heroName, 20, GameConfig.VIRTUAL_HEIGHT - 50);
+
+        if (selectedUnit != null) drawUnitCard();
+        if (gameOver) drawVictoryMessage();
+        game.batch.end();
+    }
+
+    private void drawUnitCard() {
+        float x = 20, y = 140;
+        game.detailFont.setColor(Color.GOLD);
+        game.detailFont.draw(game.batch, "[ " + selectedUnit.name + " ]", x, y);
+        game.detailFont.setColor(Color.CYAN);
+        game.detailFont.draw(game.batch, "SKILL: " + selectedUnit.stat.skillName(), x, y - 25);
+        game.detailFont.setColor(Color.WHITE);
+        game.detailFont.draw(game.batch, "HP: " + selectedUnit.currentHp + " / " + selectedUnit.stat.hp(), x, y - 55);
+        game.detailFont.draw(game.batch, "ATK: " + selectedUnit.stat.atk(), x, y - 80);
+        game.detailFont.draw(game.batch, "RANGE: " + selectedUnit.stat.range(), x, y - 105);
+    }
+
+    private void drawVictoryMessage() {
+        game.batch.end();
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        shape.begin(ShapeRenderer.ShapeType.Filled);
+        shape.setColor(0, 0, 0, 0.5f);
+        /**
+         * [수정] 승리 박스 크기 GameConfig 참조
+         */
+        shape.rect(0, 300, GameConfig.VIRTUAL_WIDTH, 200);
+        shape.end();
+
+        game.batch.begin();
+        game.detailFont.setColor(Color.YELLOW);
+        game.detailFont.draw(game.batch, "STAGE CLEAR / VICTORY!", 150, 420);
     }
 
     private void update(float delta) {
@@ -124,7 +223,6 @@ public class BattleScreen extends ScreenAdapter {
                     try {
                         AILogic.processAITurn(units, aiTeam, turnManager, this);
                     } catch (Exception e) {
-                        System.err.println("[AI 오류] " + e.getMessage());
                         turnManager.endTurn();
                     }
                     aiBusy = false;
@@ -137,32 +235,12 @@ public class BattleScreen extends ScreenAdapter {
         }
     }
 
-    private void handleInput() {
-        if (!turnManager.getCurrentTurn().equals(playerTeam) || aiBusy || gameOver) return;
-
-        float mx = Gdx.input.getX();
-        float my = Gdx.graphics.getHeight() - Gdx.input.getY();
-        hoveredGrid = IsoUtils.screenToGrid(mx, my);
-
-        if (Gdx.input.justTouched()) {
-            if (hoveredGrid.x < 0 || hoveredGrid.y < 0) return;
-
-            int tx = (int) hoveredGrid.x;
-            int ty = (int) hoveredGrid.y;
-            Unit clicked = BoardManager.getUnitAt(units, tx, ty);
-
-            if (clicked != null && clicked.isAlive() && clicked.team.equals(playerTeam)) {
-                selectedUnit = clicked;
-            } else if (selectedUnit != null) {
-                if (BoardManager.canMoveTo(selectedUnit, tx, ty, units)) {
-                    selectedUnit.setPosition(tx, ty);
-                    processAutoAttack(playerTeam);
-                    selectedUnit = null;
-                    aiBusy = true;
-                    turnManager.endTurn();
-                } else {
-                    selectedUnit = null;
-                }
+    private void cleanupDeadUnits() {
+        for (int i = units.size - 1; i >= 0; i--) {
+            Unit u = units.get(i);
+            if (u.status == Unit.DEAD) {
+                if (selectedUnit == u) selectedUnit = null;
+                units.removeIndex(i);
             }
         }
     }
@@ -187,94 +265,30 @@ public class BattleScreen extends ScreenAdapter {
         }
     }
 
-    /**
-     * [수정] 적 킹(보스) 사망 시 다음 스테이지로 넘어가도록 로직을 확장했습니다.
-     */
     private void handleDeath(Unit attacker, Unit target) {
         target.status = Unit.DEAD;
-
-        // 적 팀 보스(RULER) 처치 시
-        if (target.team.equals(aiTeam) && "왕의 위엄".equals(target.stat.skillName())) {
-            if (stageLevel < 6) {
-                System.out.println("STAGE CLEAR! " + (stageLevel + 1) + "단계로 진입합니다.");
+        if (target.team.equals(aiTeam) && !target.stat.skillName().equals("일반 병사")) {
+            if (stageLevel < 7) {
                 game.setScreen(new BattleScreen(game, playerTeam, heroName, heroStat, stageLevel + 1));
             } else {
                 gameOver = true;
                 winner = attacker.team;
-                System.out.println("전부 클리어! 최종 승리!");
             }
-        }
-        // 아군 영웅 사망 시 (이름으로 대조)
-        else if (target.name.equals(heroName)) {
+        } else if (target.team.equals(playerTeam) && target.name.equals(heroName)) {
             gameOver = true;
             winner = aiTeam;
-            System.out.println("영웅 사망... 게임 오버");
         }
     }
 
-    private void draw() {
-        Gdx.gl.glClearColor(0.1f, 0.1f, 0.1f, 1);
-        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-
-        shape.begin(ShapeRenderer.ShapeType.Line);
-        mapRenderer.drawGrid(hoveredGrid, turnManager.getCurrentTurn());
-        if (!gameOver && selectedUnit != null) {
-            mapRenderer.drawRangeOverlays(selectedUnit, units);
-        }
-        shape.end();
-
-        game.batch.begin();
-        for (Unit unit : units) {
-            if (unit.isAlive()) {
-                unitRenderer.render(unit);
-                if (unit == selectedUnit) drawSelectionHighlight(unit);
-            }
-        }
-
-        game.font.setColor(Color.WHITE);
-        game.font.draw(game.batch, "STAGE " + stageLevel, 20, Gdx.graphics.getHeight() - 20);
-        game.font.draw(game.batch, "HERO: " + heroName, 20, Gdx.graphics.getHeight() - 50);
-
-        if (selectedUnit != null) drawUnitCard();
-        if (gameOver) drawVictoryMessage();
-        game.batch.end();
-    }
-
-    private void drawSelectionHighlight(Unit unit) {
-        Vector2 pos = IsoUtils.gridToScreen(unit.gridX, unit.gridY);
-        game.batch.end();
-        shape.begin(ShapeRenderer.ShapeType.Line);
-        shape.setColor(Color.YELLOW);
-        shape.ellipse(pos.x - 20, pos.y - 12, 40, 20);
-        shape.end();
-        game.batch.begin();
-    }
-
-    private void drawUnitCard() {
-        float x = 20, y = 120;
-        game.font.setColor(Color.GOLD);
-        game.font.draw(game.batch, "[ " + selectedUnit.name + " ]", x, y);
-        game.font.setColor(Color.WHITE);
-        game.font.draw(game.batch, "HP: " + selectedUnit.currentHp + " / " + selectedUnit.stat.hp(), x, y - 25);
-        game.font.draw(game.batch, "ATK: " + selectedUnit.stat.atk(), x, y - 50);
-    }
-
-    private void drawVictoryMessage() {
-        game.batch.end();
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        shape.begin(ShapeRenderer.ShapeType.Filled);
-        shape.setColor(0, 0, 0, 0.5f);
-        shape.rect(0, 300, Gdx.graphics.getWidth(), 200);
-        shape.end();
-        game.batch.begin();
-
-        game.font.setColor(Color.YELLOW);
-        game.font.draw(game.batch, "STAGE CLEAR / VICTORY!", 150, 420);
+    @Override
+    public void resize(int width, int height) {
+        stage.getViewport().update(width, height, true);
     }
 
     @Override
     public void dispose() {
         if (shape != null) shape.dispose();
         if (unitRenderer != null) unitRenderer.dispose();
+        if (stage != null) stage.dispose();
     }
 }

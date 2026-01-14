@@ -20,11 +20,13 @@ import com.badlogic.gdx.scenes.scene2d.ui.Window;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Scaling;
-import com.badlogic.gdx.utils.viewport.ScreenViewport;
+import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.hades.game.HadesGame;
+import com.hades.game.constants.GameConfig; // GameConfig 추가
 import com.hades.game.constants.SkillData;
 import com.hades.game.constants.UnitData;
 
+// 클래스 역할: 진영 선택 후 플레이할 영웅을 선택하는 화면입니다.
 public class HeroSelectionScreen extends ScreenAdapter {
     private final HadesGame game;
     private final String selectedFaction;
@@ -35,12 +37,16 @@ public class HeroSelectionScreen extends ScreenAdapter {
 
     public HeroSelectionScreen(HadesGame game, String faction, Music music) {
         this.game = game;
-        this.backgroundMusic = music; // 음악 생성자
+        this.backgroundMusic = music;
         this.selectedFaction = faction;
-        this.stage = new Stage(new ScreenViewport());
-        backgroundTexture = new Texture(Gdx.files.internal("images/background/main.png"));
 
-        /* 반투명 블랙 배경 드로어블 생성 */
+        // GameConfig의 가상 해상도를 적용하여 비율을 고정합니다.
+        this.stage = new Stage(new FitViewport(GameConfig.VIRTUAL_WIDTH, GameConfig.VIRTUAL_HEIGHT));
+
+        backgroundTexture = new Texture(Gdx.files.internal("images/background/main.png"));
+        backgroundTexture.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+
+        // 반투명 블랙 배경 드로어블 생성
         createDialogBackground();
 
         initUI();
@@ -62,6 +68,7 @@ public class HeroSelectionScreen extends ScreenAdapter {
     private void initUI() {
         Table root = new Table();
         root.setFillParent(true);
+        root.setTransform(true); // 글자 확대 효과 시 레이아웃 깨짐 방지
         stage.addActor(root);
 
         Label title = new Label("CHOOSE YOUR HERO", new Label.LabelStyle(game.subtitleFont, Color.GOLD));
@@ -107,31 +114,31 @@ public class HeroSelectionScreen extends ScreenAdapter {
         root.add(listTable).center();
     }
 
-    /**
-     * [메서드 설명] SkillData 클래스와 연동하여 영웅의 상세 정보를 팝업창에 출력합니다.
-     */
+    // 메서드 설명: SkillData 클래스와 연동하여 영웅의 상세 정보를 팝업창에 출력합니다.
     private void showGridPopup(final String name, final UnitData.Stat stat) {
-        Window.WindowStyle windowStyle = new Window.WindowStyle(game.mainFont, Color.WHITE, dialogBackground);
+        Window.WindowStyle windowStyle = new Window.WindowStyle(game.detailFont2, Color.WHITE, dialogBackground);
         final Dialog dialog = new Dialog("", windowStyle);
 
         Table content = dialog.getContentTable();
         content.pad(10);
 
-        // 1. SkillData에서 해당 유닛의 스킬 정보 가져오기
+        // [테스트용 코드] 이 한 줄로 테이블의 모든 셀 경계선이 보입니다.
+        content.setDebug(true);
+
+        // SkillData에서 해당 유닛의 스킬 정보 가져오기
         SkillData.Skill skill = SkillData.get(stat.skillName());
 
-        // 2. 1행 1열: 영웅 이미지 (이미지가 없어도 1열 크기를 유지하여 레이아웃 고정)
+        // 영웅 이미지 처리
         String path = "images/character/" + name + ".png";
         if (Gdx.files.internal(path).exists()) {
             Image heroImg = new Image(new Texture(Gdx.files.internal(path)));
             heroImg.setScaling(Scaling.fit);
-            content.add(heroImg).size(300, 400).padTop(10);
+            content.add(heroImg).size(360, 480).padTop(10);
         } else {
-            // 이미지 파일 누락 시에도 우측 텍스트가 밀리지 않도록 빈 칸 확보
             content.add().size(300, 400).padTop(10);
         }
 
-        // 3. 1행 2열: 스탯 및 SkillData 상세 설명
+        // 스탯 및 상세 설명 출력
         Label infoLabel = new Label(
             "[" + name + "]\n\n" +
                 "HP: " + stat.hp() + " | ATK: " + stat.atk() + "\n" +
@@ -139,26 +146,24 @@ public class HeroSelectionScreen extends ScreenAdapter {
                 "SKILL: " + skill.name + "\n" +
                 "--------------------------\n" +
                 skill.description,
-            new Label.LabelStyle(game.mainFont, Color.LIME)
+            new Label.LabelStyle(game.detailFont2, Color.LIME)
         );
         infoLabel.setAlignment(com.badlogic.gdx.utils.Align.center);
         infoLabel.setWrap(true);
-        content.add(infoLabel).center().width(300).pad(10).row();
+        content.add(infoLabel).center().width(360).pad(10).row();
 
-        // 4. 2행: 하단 버튼들
         Table btnTable = new Table();
-        Label startBtn = new Label("[ 전투 시작 ]", new Label.LabelStyle(game.mainFont, Color.GOLD));
+        Label startBtn = new Label("[ 전투 시작 ]", new Label.LabelStyle(game.detailFont2, Color.GOLD));
         startBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
-                // [수정] 전투 시작 시 메인 메뉴 BGM을 멈춥니다.
                 if (backgroundMusic != null) backgroundMusic.stop();
                 game.setScreen(new BattleScreen(game, selectedFaction, name, stat, 1));
                 dialog.hide();
             }
         });
 
-        Label closeBtn = new Label("[ 닫기 ]", new Label.LabelStyle(game.mainFont, Color.LIGHT_GRAY));
+        Label closeBtn = new Label("[ 닫기 ]", new Label.LabelStyle(game.detailFont2, Color.LIGHT_GRAY));
         closeBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
@@ -168,8 +173,6 @@ public class HeroSelectionScreen extends ScreenAdapter {
 
         btnTable.add(startBtn).padRight(50);
         btnTable.add(closeBtn);
-
-        // 버튼 테이블을 이미지와 정보 칸 아래에 걸쳐지도록 추가
         content.add(btnTable).colspan(2).center().padTop(20);
 
         dialog.show(stage);
@@ -180,8 +183,12 @@ public class HeroSelectionScreen extends ScreenAdapter {
         Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
+        // SpriteBatch가 가상 해상도 카메라 시점을 따르도록 투영 행렬을 설정합니다.
+        game.batch.setProjectionMatrix(stage.getViewport().getCamera().combined);
+
         game.batch.begin();
-        game.batch.draw(backgroundTexture, 0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        // 배경을 가상 해상도 크기로 고정해서 그립니다.
+        game.batch.draw(backgroundTexture, 0, 0, GameConfig.VIRTUAL_WIDTH, GameConfig.VIRTUAL_HEIGHT);
         game.batch.end();
 
         stage.act(delta);
@@ -197,7 +204,7 @@ public class HeroSelectionScreen extends ScreenAdapter {
     public void dispose() {
         stage.dispose();
         backgroundTexture.dispose();
-        if (backgroundMusic != null) backgroundMusic.dispose();     // 이 화면이 완전히 닫힐 때 음악 자원 해제
+        if (backgroundMusic != null) backgroundMusic.dispose();
         if(dialogBackground != null) dialogBackground.getRegion().getTexture().dispose();
     }
 }

@@ -2,24 +2,21 @@ package com.hades.game.utils;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 
-/**
- * [클래스 역할] 맑은 고딕, 갈무리 등 다양한 외부 폰트 생성을 전담하며 한글 출력을 지원합니다.
- */
+// 클래스 역할: 테두리와 그림자 효과가 적용된 한글 BitmapFont를 생성하는 유틸리티 클래스입니다.
 public class FontFactory {
 
-    /**
-     * [메서드 설명] 지정된 경로의 폰트 파일을 읽어 한글 지원 BitmapFont를 생성합니다.
-     * @param fontName "malgun" 또는 "Galmuri14" 등 폰트 파일명
-     * @param size 폰트 크기
-     * @param color 폰트 색상
-     * @param border 테두리 두께 (0이면 테두리 없음)
-     * @return 설정이 완료된 BitmapFont 객체
-     */
-    /* [클래스 역할] 테두리와 그림자 효과가 적용된 한글 BitmapFont를 생성하는 유틸리티 클래스입니다. */
+    // 메서드 설명: 4개의 인자만 들어올 경우 실행되며, 기본 테두리(검정)와 기본 그림자를 적용합니다.
     public static BitmapFont createFont(String fontName, int size, Color color, float border) {
+        // 내부적으로 아래의 6개 인자 메서드를 호출하여 코드 중복을 방지합니다.
+        return createFont(fontName, size, color, border, Color.BLACK, new Color(0, 0, 0, 0.6f));
+    }
+
+    // 메서드 설명: 6개의 인자를 받아 테두리 색상과 그림자 색상을 정밀하게 설정하여 폰트를 생성합니다.
+    public static BitmapFont createFont(String fontName, int size, Color color, float border, Color borderColor, Color shadowColor) {
         String fontPath = "fonts/" + fontName + ".ttf";
 
         if (!Gdx.files.internal(fontPath).exists()) {
@@ -34,22 +31,23 @@ public class FontFactory {
         param.color = color;
         param.incremental = true; // 필요한 글자만 동적으로 생성 (메모리 절약)
 
-        /* [설명] 테두리(Border) 설정: 글자의 외곽선을 그려 배경과 분리합니다. */
+        // 텍스트 필터 설정: 글자가 깨지는 것을 방지하고 부드럽게 표현합니다.
+        param.minFilter = Texture.TextureFilter.Linear;
+        param.magFilter = Texture.TextureFilter.Linear;
+
+        // 테두리 설정: 전달받은 borderColor가 있으면 적용하고, 없으면 검은색을 기본값으로 사용합니다.
         if (border > 0) {
             param.borderWidth = border;
-            param.borderColor = Color.BLACK;
+            param.borderColor = (borderColor != null) ? borderColor : Color.BLACK;
         }
 
-        /* 그림자(Shadow) 설정: 글자 뒤에 어두운 그림자를 깔아 입체감을 줍니다. */
-        // 테두리가 있을 때 그림자까지 있으면 가독성이 비약적으로 상승합니다.
-        if (size > 20) { // 타이틀처럼 큰 글씨에는 더 짙은 그림자 적용
-            param.shadowOffsetX = 3;
-            param.shadowOffsetY = 3;
-            param.shadowColor = new Color(0, 0, 0, 0.8f); // 80% 투명한 검정
-        } else { // 작은 글씨에는 얇은 그림자 적용
-            param.shadowOffsetX = 1;
-            param.shadowOffsetY = 1;
-            param.shadowColor = new Color(0, 0, 0, 0.6f);
+        // 그림자 설정: 전달받은 shadowColor가 투명이 아닐 때만 적용합니다.
+        if (shadowColor != null && !shadowColor.equals(Color.CLEAR)) {
+            param.shadowColor = shadowColor;
+            // 가독성을 위해 크기에 따라 그림자 거리(Offset) 자동 조절
+            int offset = (size > 30) ? 3 : 1;
+            param.shadowOffsetX = offset;
+            param.shadowOffsetY = offset;
         }
 
         // 한글 유니코드 전체 범위 설정
@@ -61,7 +59,7 @@ public class FontFactory {
         param.characters = sb.toString();
 
         BitmapFont font = generator.generateFont(param);
-        generator.dispose();
+        generator.dispose(); // 리소스 해제
 
         return font;
     }
