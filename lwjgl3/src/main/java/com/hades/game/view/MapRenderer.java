@@ -19,9 +19,8 @@ public class MapRenderer {
     private final SpriteBatch batch;
     private final Texture tileTop;
 
-    // 타일의 수직 두께 (픽셀 단위)
     private static final int TILE_DEPTH = 12;
-    private static final float TILE_PADDING = 24f; // 타일 사이의 간격 (픽셀)
+    private static final float TILE_PADDING = 24f;
 
     public MapRenderer(ShapeRenderer shape, SpriteBatch batch, Texture tileTop) {
         this.shape = shape;
@@ -29,15 +28,13 @@ public class MapRenderer {
         this.tileTop = tileTop;
     }
 
-    // 전장 타일을 입체적으로 출력 (타일 겹침 방지를 위해 렌더링 순서를 최적화)
-    public void drawTiles(Vector2 hoveredGrid) {
+    // [수정] 이동 가능 범위를 타일 색상으로 표현하기 위해 파라미터 추가
+    public void drawTiles(Vector2 hoveredGrid, Unit selectedUnit, Array<Unit> units) {
         batch.begin();
 
         float drawW = GameConfig.TILE_WIDTH - TILE_PADDING;
         float drawH = GameConfig.TILE_HEIGHT - (TILE_PADDING / 2f);
 
-        // 아이소메트릭 겹침을 해결하기 위한 루프 순서 변경
-        // Y축(깊이)을 먼저 바깥 루프에 두고, 위에서 아래로 내려오며 그립니다.
         for (int y = 0; y < GameConfig.BOARD_HEIGHT; y++) {
             for (int x = 0; x < GameConfig.BOARD_WIDTH; x++) {
                 Vector2 pos = IsoUtils.gridToScreen(x, y);
@@ -46,57 +43,69 @@ public class MapRenderer {
                 for (int i = TILE_DEPTH; i > 0; i--) {
                     float brightness = 0.35f + (0.3f * (1.0f - (float)i / TILE_DEPTH));
                     batch.setColor(brightness, brightness, brightness, 1.0f);
-
-                    batch.draw(tileTop,
-                        pos.x - drawW / 2f,
-                        pos.y - drawH / 2f - i,
-                        drawW,
-                        drawH);
+                    batch.draw(tileTop, pos.x - drawW / 2f, pos.y - drawH / 2f - i, drawW, drawH);
                 }
 
-                // 2. 타일 윗면 그리기
+                // 2. 타일 윗면 색상 결정 로직
+                Color tileColor = Color.WHITE;
+
+                // 이동 가능 범위 하이라이트 (청록색 계열)
+                if (selectedUnit != null && BoardManager.canMoveTo(selectedUnit, x, y, units)) {
+                    tileColor = new Color(0.1f, 0.7f, 0.8f, 1.0f); // 선명한 청록색
+                }
+
+                // 마우스 오버 하이라이트 (이동 범위보다 우선순위 높음)
                 if (x == (int) hoveredGrid.x && y == (int) hoveredGrid.y) {
-                    batch.setColor(Color.LIGHT_GRAY);
-                } else {
-                    batch.setColor(Color.WHITE);
+                    tileColor = Color.LIGHT_GRAY;
                 }
 
-                batch.draw(tileTop,
-                    pos.x - drawW / 2f,
-                    pos.y - drawH / 2f,
-                    drawW,
-                    drawH);
+                batch.setColor(tileColor);
+                batch.draw(tileTop, pos.x - drawW / 2f, pos.y - drawH / 2f, drawW, drawH);
             }
         }
         batch.setColor(Color.WHITE);
         batch.end();
     }
 
-    // 유닛 선택 시 이동/공격 가능 범위 출력
-    public void drawRangeOverlays(Unit unit, Array<Unit> units) {
+    // [수정] 이동 범위 로직을 제거하고 공격 사거리 테두리만 출력
+    public void drawRangeOverlays(Unit unit) {
         if (unit == null) return;
 
         Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glLineWidth(3f); // 사거리 테두리를 더 선명하게 두께 조절
         shape.begin(ShapeRenderer.ShapeType.Line);
 
         for (int x = 0; x < GameConfig.BOARD_WIDTH; x++) {
             for (int y = 0; y < GameConfig.BOARD_HEIGHT; y++) {
-                int dist = Math.abs(unit.gridX - x) + Math.abs(unit.gridY - y);
-                Vector2 pos = IsoUtils.gridToScreen(x, y);
+                if (x == unit.gridX && y == unit.gridY) continue;
 
-                if (dist <= unit.stat.range() && dist > 0) {
-                    shape.setColor(1, 0, 0, 0.8f); // 공격 사거리 표시 (빨강)
-                    drawIsoShape(pos.x, pos.y);
-                } else if (BoardManager.canMoveTo(unit, x, y, units)) {
-                    shape.setColor(0, 1, 1, 0.8f); // 이동 가능 범위 표시 (청록)
+                Vector2 pos = IsoUtils.gridToScreen(x, y);
+                int dx = Math.abs(unit.gridX - x);
+                int dy = Math.abs(unit.gridY - y);
+                int dist = dx + dy;
+
+                boolean canAttackTile = false;
+
+                // 병과별 사거리 로직 일치화
+                if (unit.unitClass == Unit.UnitClass.ARCHER) {
+                    if ((dx == 0 || dy == 0) && dist <= unit.stat.range()) canAttackTile = true;
+                } else if (unit.unitClass == Unit.UnitClass.KNIGHT) {
+                    if (dx <= 1 && dy <= 1) canAttackTile = true;
+                } else {
+                    if (dist <= unit.stat.range()) canAttackTile = true;
+                }
+
+                if (canAttackTile) {
+                    shape.setColor(1, 0, 0, 0.9f); // 공격 사거리는 빨간색 테두리
                     drawIsoShape(pos.x, pos.y);
                 }
             }
         }
         shape.end();
+        Gdx.gl.glLineWidth(1f);
     }
 
-    // 마름모 형태의 가이드 라인 생성
+    // 마름모 형태의 가이드 라인
     private void drawIsoShape(float cx, float cy) {
         float hw = GameConfig.TILE_WIDTH / 2f;
         float hh = GameConfig.TILE_HEIGHT / 2f;

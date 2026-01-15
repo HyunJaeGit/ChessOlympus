@@ -27,7 +27,6 @@ import com.hades.game.view.GameUI;
 import com.hades.game.view.MapRenderer;
 import com.hades.game.view.UnitRenderer;
 
-// 클래스 역할: 전투 로직을 제어하며, 승리/패배 시 재도전 및 메뉴 이동 UI와 전용 BGM 재생을 담당합니다.
 public class BattleScreen extends ScreenAdapter {
     private final HadesGame game;
     private ShapeRenderer shape;
@@ -38,7 +37,7 @@ public class BattleScreen extends ScreenAdapter {
     private TurnManager turnManager;
     private MapRenderer mapRenderer;
     private UnitRenderer unitRenderer;
-    private GameUI gameUI; // UI 전담 클래스 추가
+    private GameUI gameUI;
 
     private Texture battleBg;
     private Texture tileTop;
@@ -80,19 +79,11 @@ public class BattleScreen extends ScreenAdapter {
     @Override
     public void show() {
         Gdx.input.setInputProcessor(stage);
-        // BGM 전환: 메뉴 중지, 배틀 시작
         if (game.menuBgm != null && game.menuBgm.isPlaying()) game.menuBgm.stop();
         if (game.battleBgm != null && !game.battleBgm.isPlaying()) game.battleBgm.play();
     }
 
-    @Override
-    public void hide() {
-        if (game.battleBgm != null) game.battleBgm.stop();
-        Gdx.input.setInputProcessor(null);
-    }
-
     private void loadResources() {
-        // 배경과 타일만 유지, 상세 UI는 GameUI 내부에서 로드
         battleBg = new Texture(Gdx.files.internal("images/background/battle_background.png"));
         tileTop = new Texture(Gdx.files.internal("images/background/tile_top.png"));
     }
@@ -101,30 +92,38 @@ public class BattleScreen extends ScreenAdapter {
         shape = new ShapeRenderer();
         mapRenderer = new MapRenderer(shape, game.batch, tileTop);
         unitRenderer = new UnitRenderer(game.batch, shape, game.unitFont, playerTeam);
-        gameUI = new GameUI(game); // UI 인스턴스 초기화
+        gameUI = new GameUI(game);
 
         units = new Array<>();
         turnManager = new TurnManager();
         setupBattleUnits();
     }
 
+    // [업데이트] 브레인스토밍된 7인 체제 배치 (영웅은 중앙, 나머지는 레인 배치)
     private void setupBattleUnits() {
         units.clear();
-        // 플레이어 영웅 및 부대 배치
-        units.add(new Unit(heroName, playerTeam, heroStat, 3, 0));
-        for (int x = 0; x < GameConfig.BOARD_WIDTH; x++) {
-            if (x == 3) continue;
-            units.add(new Unit("케로", playerTeam, UnitData.HADES_SOLDIER, x, 0));
-        }
 
-        // 적 부대 배치 (스테이지 레벨에 따른 보스 설정)
+        // --- 플레이어 진영 (HADES) ---
+        // 레인 순서: 궁병(0), 기병(1), 방패병(2), 영웅(3), 방패병(4), 전차병(5), 성녀(6)
+        units.add(new Unit(heroName, playerTeam, heroStat, Unit.UnitClass.HERO, 3, 0));
+        units.add(new Unit("궁병", playerTeam, UnitData.CLASS_ARCHER, Unit.UnitClass.ARCHER, 0, 0));
+        units.add(new Unit("기병", playerTeam, UnitData.CLASS_KNIGHT, Unit.UnitClass.KNIGHT, 1, 0));
+        units.add(new Unit("방패병1", playerTeam, UnitData.CLASS_SHIELD, Unit.UnitClass.SHIELD, 2, 0));
+        units.add(new Unit("방패병2", playerTeam, UnitData.CLASS_SHIELD, Unit.UnitClass.SHIELD, 4, 0));
+        units.add(new Unit("전차병", playerTeam, UnitData.CLASS_CHARIOT, Unit.UnitClass.CHARIOT, 5, 0));
+        units.add(new Unit("성녀", playerTeam, UnitData.CLASS_SAINT, Unit.UnitClass.SAINT, 6, 0));
+
+        // --- 적 진영 (ZEUS) ---
         int enemyRow = GameConfig.BOARD_HEIGHT - 1;
         int bossIdx = Math.min(stageLevel - 1, UnitData.STATS_ZEUS.length - 1);
-        units.add(new Unit(UnitData.NAMES_ZEUS[bossIdx], aiTeam, UnitData.STATS_ZEUS[bossIdx], 3, enemyRow));
-        for (int x = 0; x < GameConfig.BOARD_WIDTH; x++) {
-            if (x == 3) continue;
-            units.add(new Unit("병사", aiTeam, UnitData.ZEUS_SOLDIER, x, enemyRow));
-        }
+
+        units.add(new Unit(UnitData.NAMES_ZEUS[bossIdx], aiTeam, UnitData.STATS_ZEUS[bossIdx], Unit.UnitClass.HERO, 3, enemyRow));
+        units.add(new Unit("적 궁병", aiTeam, UnitData.CLASS_ARCHER, Unit.UnitClass.ARCHER, 0, enemyRow));
+        units.add(new Unit("적 기병", aiTeam, UnitData.CLASS_KNIGHT, Unit.UnitClass.KNIGHT, 1, enemyRow));
+        units.add(new Unit("적 방패병1", aiTeam, UnitData.CLASS_SHIELD, Unit.UnitClass.SHIELD, 2, enemyRow));
+        units.add(new Unit("적 방패병2", aiTeam, UnitData.CLASS_SHIELD, Unit.UnitClass.SHIELD, 4, enemyRow));
+        units.add(new Unit("적 전차병", aiTeam, UnitData.CLASS_CHARIOT, Unit.UnitClass.CHARIOT, 5, enemyRow));
+        units.add(new Unit("적 성녀", aiTeam, UnitData.CLASS_SAINT, Unit.UnitClass.SAINT, 6, enemyRow));
     }
 
     @Override
@@ -138,27 +137,22 @@ public class BattleScreen extends ScreenAdapter {
         game.batch.setProjectionMatrix(stage.getViewport().getCamera().combined);
         shape.setProjectionMatrix(stage.getViewport().getCamera().combined);
 
-        // 1. 배경 렌더링
         game.batch.begin();
         game.batch.draw(battleBg, 0, 0, GameConfig.VIRTUAL_WIDTH, GameConfig.VIRTUAL_HEIGHT);
         game.batch.end();
 
-        // 2. 맵 타일 렌더링
         mapRenderer.drawTiles(hoveredGrid);
         if (!gameOver && selectedUnit != null) {
             mapRenderer.drawRangeOverlays(selectedUnit, units);
         }
 
-        // 3. 유닛 렌더링 (그림자 -> 바디 순서)
         game.batch.begin();
         for (Unit u : units) { if (u.isAlive()) unitRenderer.renderShadow(u, selectedUnit); }
         for (Unit u : units) { if (u.isAlive()) unitRenderer.renderBody(u, selectedUnit); }
 
-        // 4. UI 전담 렌더링 (GameUI로 위임)
         gameUI.render(stageLevel, turnManager.getCurrentTurn(), playerTeam, menuHitbox, selectedUnit);
         game.batch.end();
 
-        // 5. 게임오버 오버레이 및 Stage(버튼 등)
         if (gameOver) {
             drawGameOverOverlay();
             stage.act();
@@ -174,7 +168,6 @@ public class BattleScreen extends ScreenAdapter {
             aiDelay = 0;
             handleInput();
         } else {
-            // AI 턴 처리
             aiDelay += delta;
             if (aiDelay >= 1.0f) {
                 if (aiBusy) {
@@ -196,7 +189,6 @@ public class BattleScreen extends ScreenAdapter {
         float mx = touchPos.x;
         float my = touchPos.y;
 
-        // 전체화면 토글 버튼 처리
         if (Gdx.input.justTouched() && menuHitbox.contains(mx, my)) {
             game.playClick(1.0f);
             toggleFullscreen();
@@ -208,20 +200,21 @@ public class BattleScreen extends ScreenAdapter {
         hoveredGrid = IsoUtils.screenToGrid(mx, my);
 
         if (Gdx.input.justTouched()) {
-            // 유닛 이동 처리
             if (selectedUnit != null) {
                 int tx = (int) hoveredGrid.x;
                 int ty = (int) hoveredGrid.y;
                 if (tx >= 0 && ty >= 0 && selectedUnit.team.equals(playerTeam) && BoardManager.canMoveTo(selectedUnit, tx, ty, units)) {
                     selectedUnit.setPosition(tx, ty);
+
+                    // 이동 후 자동 액션 수행 (공격 및 힐)
                     processAutoAttack(playerTeam);
+
                     selectedUnit = null;
                     aiBusy = true;
                     turnManager.endTurn();
                     return;
                 }
             }
-            // 유닛 선택 처리
             Unit clickedUnit = null;
             for (Unit u : units) {
                 if (u.isAlive() && unitRenderer.isMouseInsideHitbox(u, mx, my)) {
@@ -233,34 +226,51 @@ public class BattleScreen extends ScreenAdapter {
         }
     }
 
-    private void toggleFullscreen() {
-        if (Gdx.graphics.isFullscreen()) {
-            Gdx.graphics.setWindowedMode((int) GameConfig.VIRTUAL_WIDTH, (int) GameConfig.VIRTUAL_HEIGHT);
-        } else {
-            Gdx.graphics.setFullscreenMode(Gdx.graphics.getDisplayMode());
-        }
-    }
-
-    private void drawGameOverOverlay() {
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        shape.begin(ShapeRenderer.ShapeType.Filled);
-        shape.setColor(0, 0, 0, 0.7f);
-        shape.rect(0, 0, GameConfig.VIRTUAL_WIDTH, GameConfig.VIRTUAL_HEIGHT);
-        shape.end();
-        Gdx.gl.glDisable(GL20.GL_BLEND);
-    }
-
+    // 자동 공격 및 성녀의 자동 치유 로직
     public void processAutoAttack(String team) {
-        // 향상된 for문(for : units) 대신 인덱스 for문을 사용하여 반복자 충돌 방지
+        // 1. 공격 단계
         for (int i = 0; i < units.size; i++) {
             Unit attacker = units.get(i);
-
-            // 유닛이 살아있고 해당 팀일 때만 공격 시도
             if (attacker != null && attacker.isAlive() && attacker.team.equals(team)) {
-                // 내부에서 다시 units를 검색해도 이제 안전합니다.
-                Unit target = BoardManager.findBestTargetInRange(attacker, units);
-                if (target != null) {
-                    performAttack(attacker, target);
+
+                // 기병(KNIGHT)은 사거리 내 모든 적 광역 공격
+                if (attacker.unitClass == Unit.UnitClass.KNIGHT) {
+                    // findAllTargetsInRange 내부에서도 인덱스 for문을 써야 안전합니다.
+                    Array<Unit> targets = BoardManager.findAllTargetsInRange(attacker, units);
+                    for (int j = 0; j < targets.size; j++) {
+                        performAttack(attacker, targets.get(j));
+                    }
+                }
+                // 나머지 병과 및 영웅은 단일 공격
+                else {
+                    Unit target = BoardManager.findBestTargetInRange(attacker, units);
+                    if (target != null) {
+                        performAttack(attacker, target);
+                    }
+                }
+            }
+        }
+
+        // 2. 성녀의 치유 단계
+        processAutoHeal(team);
+    }
+
+    // [수정] 중첩 반복 에러 해결을 위해 인덱스 기반 for문 사용
+    private void processAutoHeal(String team) {
+        for (int i = 0; i < units.size; i++) {
+            Unit u = units.get(i);
+            // 해당 팀의 성녀 찾기
+            if (u.isAlive() && u.team.equals(team) && u.unitClass == Unit.UnitClass.SAINT) {
+                for (int j = 0; j < units.size; j++) {
+                    Unit ally = units.get(j);
+                    // 주변 상하좌우 1칸 아군 중 체력이 깎인 유닛 회복
+                    if (ally.isAlive() && ally.team.equals(team) && ally != u) {
+                        int dist = Math.abs(u.gridX - ally.gridX) + Math.abs(u.gridY - ally.gridY);
+                        if (dist == 1 && ally.currentHp < ally.stat.hp()) {
+                            ally.currentHp = Math.min(ally.stat.hp(), ally.currentHp + 15);
+                            // // 회복 로그 (필요시 사용)
+                        }
+                    }
                 }
             }
         }
@@ -269,27 +279,20 @@ public class BattleScreen extends ScreenAdapter {
     public void performAttack(Unit attacker, Unit target) {
         if (attacker == null || target == null || !target.isAlive() || !attacker.isAlive()) return;
 
-        // 1. 공격 주도자의 타격 (항상 현재 턴인 유닛이 호출함)
         boolean isAttackerTurn = turnManager.isMyTurn(attacker.team);
         int atkDmg = attacker.getPower(isAttackerTurn);
         target.currentHp -= atkDmg;
 
-        // TODO: 전투 로그 추가 (예: gameUI.addLog(attacker.name + "의 공격! " + atkDmg + " 데미지"))
-
-        // 2. 타겟 사망 확인
         if (target.currentHp <= 0) {
             target.currentHp = 0;
             handleDeath(target);
-            return; // 사망 시 반격 불가
+            return;
         }
 
-        // 3. 수비자의 반격 (조건: 타겟이 생존해 있고 공격자가 내 사거리 안인가?)
+        // 수비자의 반격 (기병 광역 공격 시에도 각자 반격함)
         if (target.canReach(attacker)) {
-            // 반격자는 현재 턴의 주인이 아니므로 false가 전달되어 counterAtk가 적용됨
             int counterDmg = target.getPower(turnManager.isMyTurn(target.team));
             attacker.currentHp -= counterDmg;
-
-            // TODO: 전투 로그 추가 (예: gameUI.addLog(target.name + "의 반격! " + counterDmg + " 데미지"))
 
             if (attacker.currentHp <= 0) {
                 attacker.currentHp = 0;
@@ -300,10 +303,8 @@ public class BattleScreen extends ScreenAdapter {
 
     private void handleDeath(Unit target) {
         target.status = Unit.DEAD;
-
-        // 보스 사망 시 승리, 플레이어 영웅 사망 시 패배
-        boolean isEnemyBoss = target.team.equals(aiTeam) && !target.stat.skillName().equals("일반 병사");
-        boolean isPlayerHero = target.team.equals(playerTeam) && target.name.equals(heroName);
+        boolean isEnemyBoss = target.team.equals(aiTeam) && target.unitClass == Unit.UnitClass.HERO;
+        boolean isPlayerHero = target.team.equals(playerTeam) && target.unitClass == Unit.UnitClass.HERO;
 
         if (isEnemyBoss) {
             gameOver = true;
@@ -364,6 +365,23 @@ public class BattleScreen extends ScreenAdapter {
                 units.removeIndex(i);
             }
         }
+    }
+
+    private void toggleFullscreen() {
+        if (Gdx.graphics.isFullscreen()) {
+            Gdx.graphics.setWindowedMode((int) GameConfig.VIRTUAL_WIDTH, (int) GameConfig.VIRTUAL_HEIGHT);
+        } else {
+            Gdx.graphics.setFullscreenMode(Gdx.graphics.getDisplayMode());
+        }
+    }
+
+    private void drawGameOverOverlay() {
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        shape.begin(ShapeRenderer.ShapeType.Filled);
+        shape.setColor(0, 0, 0, 0.7f);
+        shape.rect(0, 0, GameConfig.VIRTUAL_WIDTH, GameConfig.VIRTUAL_HEIGHT);
+        shape.end();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
     }
 
     @Override
