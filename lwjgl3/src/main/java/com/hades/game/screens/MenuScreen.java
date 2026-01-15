@@ -1,7 +1,6 @@
 package com.hades.game.screens;
 
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.Graphics;
 import com.badlogic.gdx.ScreenAdapter;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
@@ -18,7 +17,6 @@ import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.hades.game.HadesGame;
 import com.hades.game.constants.GameConfig;
 
-// 클래스 역할: HadesGame에 로드된 전역 BGM을 제어하며 메인 메뉴 인터페이스를 제공합니다.
 public class MenuScreen extends ScreenAdapter {
     private final HadesGame game;
     private Stage stage;
@@ -26,7 +24,7 @@ public class MenuScreen extends ScreenAdapter {
 
     private Label volStatusLabel;
     private Label screenBtn;
-    private int volumeStep = 1; // 기본 볼륨 10%
+    private int volumeStep; // 전역 설정에서 가져옴
 
     private final Color COLOR_GOLD = Color.valueOf("D4AF37");
     private final Color COLOR_MAIN = Color.valueOf("E0E0E0");
@@ -35,21 +33,22 @@ public class MenuScreen extends ScreenAdapter {
 
     public MenuScreen(HadesGame game) {
         this.game = game;
+        // 전역 볼륨값을 기준으로 현재 스텝 계산
+        this.volumeStep = (int)(game.globalVolume * 10);
         this.stage = new Stage(new FitViewport(GameConfig.VIRTUAL_WIDTH, GameConfig.VIRTUAL_HEIGHT));
         this.backgroundTexture = new Texture(Gdx.files.internal("images/background/main.png"));
 
         initUI();
     }
 
-    // 화면이 나타날 때 음악 제어
     @Override
     public void show() {
         Gdx.input.setInputProcessor(stage);
 
-        // [음악 제어] 배틀 음악 끄고 메뉴 음악 재생
+        // 배틀 음악 정지 및 메뉴 음악 시작 (전역 볼륨 적용)
         if (game.battleBgm != null) game.battleBgm.stop();
         if (game.menuBgm != null && !game.menuBgm.isPlaying()) {
-            game.menuBgm.setVolume(volumeStep / 10f);
+            game.menuBgm.setVolume(game.globalVolume);
             game.menuBgm.play();
         }
     }
@@ -108,7 +107,6 @@ public class MenuScreen extends ScreenAdapter {
             @Override
             public void clicked(InputEvent event, float x, float y) {
                 game.playClick(1.0f);
-                // [수정] 음악 객체 전달 방식 변경 (필요 시 game.menuBgm 전달)
                 game.setScreen(new HeroSelectionScreen(game, "HADES", game.menuBgm));
             }
         });
@@ -149,10 +147,9 @@ public class MenuScreen extends ScreenAdapter {
         }
     }
 
+    // 볼륨 동기화 및 전역 설정 업데이트
     private void syncVolume() {
-        if (game.menuBgm != null) {
-            game.menuBgm.setVolume(volumeStep / 10f);
-        }
+        game.updateVolume(volumeStep / 10f);
         volStatusLabel.setText((volumeStep * 10) + "%");
     }
 
@@ -189,6 +186,5 @@ public class MenuScreen extends ScreenAdapter {
     public void dispose() {
         stage.dispose();
         backgroundTexture.dispose();
-        // [주의] game.menuBgm은 HadesGame에서 dispose하므로 여기선 하지 않습니다.
     }
 }

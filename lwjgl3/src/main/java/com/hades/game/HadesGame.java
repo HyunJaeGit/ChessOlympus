@@ -23,6 +23,32 @@ public class HadesGame extends Game {
     public Music menuBgm;   // 메뉴 화면 음악 (bgm.mp3)
     public Music battleBgm; // 전투 화면 음악 (bgm-battle.mp3)
 
+    // 전역 볼륨 설정 (0.0 ~ 1.0)
+    public float globalVolume = 0.1f; // 초기 음량 10% (원하는 대로 조절)
+
+    private void loadBackgroundMusic() {
+        if (Gdx.files.internal("music/bgm.mp3").exists()) {
+            menuBgm = Gdx.audio.newMusic(Gdx.files.internal("music/bgm.mp3"));
+            menuBgm.setLooping(true);
+            // 전역 볼륨 적용
+            menuBgm.setVolume(globalVolume);
+        }
+
+        if (Gdx.files.internal("music/bgm-battle.mp3").exists()) {
+            battleBgm = Gdx.audio.newMusic(Gdx.files.internal("music/bgm-battle.mp3"));
+            battleBgm.setLooping(true);
+            // 전역 볼륨 적용
+            battleBgm.setVolume(globalVolume);
+        }
+    }
+
+    // 볼륨 일괄 업데이트 메서드
+    public void updateVolume(float volume) {
+        this.globalVolume = volume;
+        if (menuBgm != null) menuBgm.setVolume(volume);
+        if (battleBgm != null) battleBgm.setVolume(volume);
+    }
+
     @Override
     public void create() {
         batch = new SpriteBatch();
@@ -48,28 +74,11 @@ public class HadesGame extends Game {
             }
         }
 
-        // [추가] 배경음악 로드 및 설정
+        // 배경음악 로드 및 설정
         loadBackgroundMusic();
 
         // 초기 화면 설정 (MenuScreen에서 menuBgm 재생 시작 예정)
         this.setScreen(new MenuScreen(this));
-    }
-
-    // 배경음악 리소스 로드 메서드
-    private void loadBackgroundMusic() {
-        // 메뉴 음악 (bgm.mp3)
-        if (Gdx.files.internal("music/bgm.mp3").exists()) {
-            menuBgm = Gdx.audio.newMusic(Gdx.files.internal("music/bgm.mp3"));
-            menuBgm.setLooping(true);
-            menuBgm.setVolume(0.3f);
-        }
-
-        // 배틀 음악 (bgm-battle.mp3)
-        if (Gdx.files.internal("music/bgm-battle.mp3").exists()) {
-            battleBgm = Gdx.audio.newMusic(Gdx.files.internal("music/bgm-battle.mp3"));
-            battleBgm.setLooping(true);
-            battleBgm.setVolume(0.3f);
-        }
     }
 
     public void playClick(float pitch) {

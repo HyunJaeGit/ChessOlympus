@@ -2,6 +2,7 @@ package com.hades.game.view;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
@@ -66,22 +67,23 @@ public class UnitRenderer {
             my >= pos.y && my <= pos.y + HITBOX_H;
     }
 
-    // 유닛 선택 시 팀별 색상(앤티크 골드 / 다크 레드) 링 출력
+    // 유닛 선택시 식별 링 생성
     private void drawSelectionRing(Unit unit, Vector2 pos, boolean isSelected) {
         if (batch.isDrawing()) batch.end();
 
-        Gdx.gl.glLineWidth(2);
-        shape.begin(ShapeRenderer.ShapeType.Line);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        shape.begin(ShapeRenderer.ShapeType.Filled);
 
-        // 아군: 앤티크 골드, 적군: 깊은 와인색
-        Color allyColor = Color.valueOf("D4AF37");
-        Color enemyColor = Color.valueOf("800000");
+        // 노란색 링 대신, 유닛 발밑에 은은하게 퍼지는 흰색 광원 효과
+        Color glowColor = new Color(1, 1, 1, 0.2f);
+        shape.setColor(glowColor);
 
-        Color highlightColor = unit.team.equals(playerTeam) ? allyColor : enemyColor;
-        shape.setColor(highlightColor);
-        shape.ellipse(pos.x - 30, pos.y - 15, 60, 30);
+        // 이중 타원을 그려 부드러운 그라데이션 느낌 표현
+        shape.ellipse(pos.x - 35, pos.y - 17, 70, 35);
+        shape.setColor(new Color(1, 1, 1, 0.1f));
+        shape.ellipse(pos.x - 45, pos.y - 22, 90, 45);
+
         shape.end();
-
         batch.begin();
     }
 
@@ -102,15 +104,16 @@ public class UnitRenderer {
         return unitTextures.get(imgKey);
     }
 
-    // 발밑 반투명 검은색 타원형 그림자 출력
+    // 발밑 옅은 회색 그림자 출력
     private void drawShadow(Vector2 pos) {
         if (batch.isDrawing()) batch.end();
 
+        // 블렌딩 활성화 (투명도 표현을 위해 필요)
+        Gdx.gl.glEnable(GL20.GL_BLEND);
         shape.begin(ShapeRenderer.ShapeType.Filled);
 
-        // 단순 검정(0,0,0) 대신 배경과 어우러지는 짙은 네이비/퍼플 톤 그림자
-        // 투명도를 0.3f -> 0.45f로 살짝 높여 무게감을 줌
-        shape.setColor(new Color(0.05f, 0.05f, 0.12f, 0.15f));
+        // 0.7f 정도의 밝은 회색을 아주 옅게(0.12f) 깔아줍니다.
+        shape.setColor(new Color(0.7f, 0.7f, 0.75f, 0.33f));
 
         shape.ellipse(pos.x - 25, pos.y - 10, 50, 20);
         shape.end();
