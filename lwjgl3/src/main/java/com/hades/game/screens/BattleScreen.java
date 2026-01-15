@@ -1,9 +1,7 @@
 package com.hades.game.screens;
 
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.Graphics;
 import com.badlogic.gdx.ScreenAdapter;
-import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
@@ -14,7 +12,7 @@ import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
-import com.badlogic.gdx.utils.Align;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.hades.game.HadesGame;
@@ -25,6 +23,7 @@ import com.hades.game.logic.AILogic;
 import com.hades.game.logic.BoardManager;
 import com.hades.game.logic.IsoUtils;
 import com.hades.game.logic.TurnManager;
+import com.hades.game.view.GameUI;
 import com.hades.game.view.MapRenderer;
 import com.hades.game.view.UnitRenderer;
 
@@ -39,12 +38,9 @@ public class BattleScreen extends ScreenAdapter {
     private TurnManager turnManager;
     private MapRenderer mapRenderer;
     private UnitRenderer unitRenderer;
+    private GameUI gameUI; // UI 전담 클래스 추가
 
     private Texture battleBg;
-    private Texture logInfoBg;
-    private Texture stageInfoBg;
-    private Texture unitInfoBg;
-    private Texture timerBoxBg;
     private Texture tileTop;
 
     private final String playerTeam;
@@ -70,7 +66,6 @@ public class BattleScreen extends ScreenAdapter {
         this.aiTeam = playerTeam.equals("HADES") ? "ZEUS" : "HADES";
 
         this.stage = new Stage(new FitViewport(GameConfig.VIRTUAL_WIDTH, GameConfig.VIRTUAL_HEIGHT));
-
         this.menuHitbox = new Rectangle(
             GameConfig.VIRTUAL_WIDTH - MENU_W - 20,
             GameConfig.VIRTUAL_HEIGHT - MENU_H - 20,
@@ -82,45 +77,32 @@ public class BattleScreen extends ScreenAdapter {
         init();
     }
 
-    // 화면이 나타날 때 음악 전환 로직
     @Override
     public void show() {
         Gdx.input.setInputProcessor(stage);
-
-        // 메뉴 BGM 중지
-        if (game.menuBgm != null && game.menuBgm.isPlaying()) {
-            game.menuBgm.stop();
-        }
-
-        // 전투 BGM 재생
-        if (game.battleBgm != null && !game.battleBgm.isPlaying()) {
-            game.battleBgm.play();
-        }
+        // BGM 전환: 메뉴 중지, 배틀 시작
+        if (game.menuBgm != null && game.menuBgm.isPlaying()) game.menuBgm.stop();
+        if (game.battleBgm != null && !game.battleBgm.isPlaying()) game.battleBgm.play();
     }
 
-    // 화면이 숨겨지거나 바뀔 때 음악 정지
     @Override
     public void hide() {
-        if (game.battleBgm != null) {
-            game.battleBgm.stop();
-        }
+        if (game.battleBgm != null) game.battleBgm.stop();
         Gdx.input.setInputProcessor(null);
     }
 
     private void loadResources() {
-        String path = "images/background/";
-        battleBg = new Texture(Gdx.files.internal(path + "battle_background.png"));
-        logInfoBg = new Texture(Gdx.files.internal(path + "log_info.png"));
-        stageInfoBg = new Texture(Gdx.files.internal(path + "stage_info.png"));
-        unitInfoBg = new Texture(Gdx.files.internal(path + "unit_info.png"));
-        timerBoxBg = new Texture(Gdx.files.internal(path + "timer_box.png"));
-        tileTop = new Texture(Gdx.files.internal(path + "tile_top.png"));
+        // 배경과 타일만 유지, 상세 UI는 GameUI 내부에서 로드
+        battleBg = new Texture(Gdx.files.internal("images/background/battle_background.png"));
+        tileTop = new Texture(Gdx.files.internal("images/background/tile_top.png"));
     }
 
     private void init() {
         shape = new ShapeRenderer();
         mapRenderer = new MapRenderer(shape, game.batch, tileTop);
         unitRenderer = new UnitRenderer(game.batch, shape, game.unitFont, playerTeam);
+        gameUI = new GameUI(game); // UI 인스턴스 초기화
+
         units = new Array<>();
         turnManager = new TurnManager();
         setupBattleUnits();
@@ -128,16 +110,17 @@ public class BattleScreen extends ScreenAdapter {
 
     private void setupBattleUnits() {
         units.clear();
+        // 플레이어 영웅 및 부대 배치
         units.add(new Unit(heroName, playerTeam, heroStat, 3, 0));
         for (int x = 0; x < GameConfig.BOARD_WIDTH; x++) {
             if (x == 3) continue;
             units.add(new Unit("케로", playerTeam, UnitData.HADES_SOLDIER, x, 0));
         }
+
+        // 적 부대 배치 (스테이지 레벨에 따른 보스 설정)
         int enemyRow = GameConfig.BOARD_HEIGHT - 1;
         int bossIdx = Math.min(stageLevel - 1, UnitData.STATS_ZEUS.length - 1);
-        UnitData.Stat bossStat = UnitData.STATS_ZEUS[bossIdx];
-        String bossName = UnitData.NAMES_ZEUS[bossIdx];
-        units.add(new Unit(bossName, aiTeam, bossStat, 3, enemyRow));
+        units.add(new Unit(UnitData.NAMES_ZEUS[bossIdx], aiTeam, UnitData.STATS_ZEUS[bossIdx], 3, enemyRow));
         for (int x = 0; x < GameConfig.BOARD_WIDTH; x++) {
             if (x == 3) continue;
             units.add(new Unit("병사", aiTeam, UnitData.ZEUS_SOLDIER, x, enemyRow));
@@ -148,84 +131,34 @@ public class BattleScreen extends ScreenAdapter {
     public void render(float delta) {
         update(delta);
         cleanupDeadUnits();
-        game.batch.setProjectionMatrix(stage.getViewport().getCamera().combined);
-        shape.setProjectionMatrix(stage.getViewport().getCamera().combined);
-        draw();
-    }
 
-    private void handleInput() {
-        if (gameOver) return;
-
-        Vector2 touchPos = new Vector2(Gdx.input.getX(), Gdx.input.getY());
-        stage.getViewport().unproject(touchPos);
-        float mx = touchPos.x;
-        float my = touchPos.y;
-
-        if (Gdx.input.justTouched() && menuHitbox.contains(mx, my)) {
-            game.playClick(1.0f);
-            toggleFullscreen();
-            return;
-        }
-
-        if (!turnManager.getCurrentTurn().equals(playerTeam) || aiBusy) return;
-
-        hoveredGrid = IsoUtils.screenToGrid(mx, my);
-
-        if (Gdx.input.justTouched()) {
-            if (selectedUnit != null) {
-                int tx = (int) hoveredGrid.x;
-                int ty = (int) hoveredGrid.y;
-                if (tx >= 0 && ty >= 0 && selectedUnit.team.equals(playerTeam) && BoardManager.canMoveTo(selectedUnit, tx, ty, units)) {
-                    selectedUnit.setPosition(tx, ty);
-                    processAutoAttack(playerTeam);
-                    selectedUnit = null;
-                    aiBusy = true;
-                    turnManager.endTurn();
-                    return;
-                }
-            }
-            Unit clickedUnit = null;
-            for (Unit u : units) {
-                if (u.isAlive() && unitRenderer.isMouseInsideHitbox(u, mx, my)) {
-                    clickedUnit = u;
-                    break;
-                }
-            }
-            selectedUnit = (clickedUnit != null) ? clickedUnit : null;
-        }
-    }
-
-    private void toggleFullscreen() {
-        if (Gdx.graphics.isFullscreen()) {
-            Gdx.graphics.setWindowedMode((int) GameConfig.VIRTUAL_WIDTH, (int) GameConfig.VIRTUAL_HEIGHT);
-        } else {
-            Gdx.graphics.setFullscreenMode(Gdx.graphics.getDisplayMode());
-        }
-    }
-
-    private void draw() {
         Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
+        game.batch.setProjectionMatrix(stage.getViewport().getCamera().combined);
+        shape.setProjectionMatrix(stage.getViewport().getCamera().combined);
+
+        // 1. 배경 렌더링
         game.batch.begin();
         game.batch.draw(battleBg, 0, 0, GameConfig.VIRTUAL_WIDTH, GameConfig.VIRTUAL_HEIGHT);
         game.batch.end();
 
+        // 2. 맵 타일 렌더링
         mapRenderer.drawTiles(hoveredGrid);
-
         if (!gameOver && selectedUnit != null) {
             mapRenderer.drawRangeOverlays(selectedUnit, units);
         }
 
+        // 3. 유닛 렌더링 (그림자 -> 바디 순서)
         game.batch.begin();
-        for (Unit unit : units) { if (unit.isAlive()) unitRenderer.renderShadow(unit, selectedUnit); }
+        for (Unit u : units) { if (u.isAlive()) unitRenderer.renderShadow(u, selectedUnit); }
+        for (Unit u : units) { if (u.isAlive()) unitRenderer.renderBody(u, selectedUnit); }
+
+        // 4. UI 전담 렌더링 (GameUI로 위임)
+        gameUI.render(stageLevel, turnManager.getCurrentTurn(), playerTeam, menuHitbox, selectedUnit);
         game.batch.end();
 
-        game.batch.begin();
-        for (Unit unit : units) { if (unit.isAlive()) unitRenderer.renderBody(unit, selectedUnit); }
-        drawUIElements();
-        game.batch.end();
-
+        // 5. 게임오버 오버레이 및 Stage(버튼 등)
         if (gameOver) {
             drawGameOverOverlay();
             stage.act();
@@ -233,42 +166,15 @@ public class BattleScreen extends ScreenAdapter {
         }
     }
 
-    private void drawUIElements() {
-        game.batch.draw(stageInfoBg, 20, GameConfig.VIRTUAL_HEIGHT - 100, 240, 80);
-        game.unitFont2.setColor(Color.WHITE);
-        game.unitFont2.draw(game.batch, "STAGE " + stageLevel, 80, GameConfig.VIRTUAL_HEIGHT - 45);
-
-        String currentTurn = turnManager.getCurrentTurn();
-        game.unitFont2.setColor(currentTurn.equals(playerTeam) ? Color.LIME : Color.RED);
-        game.unitFont2.draw(game.batch, currentTurn.equals(playerTeam) ? "YOUR TURN" : "ENEMY TURN", 40, GameConfig.VIRTUAL_HEIGHT - 110);
-
-        game.batch.draw(timerBoxBg, menuHitbox.x, menuHitbox.y, menuHitbox.width, menuHitbox.height);
-        String screenModeText = Gdx.graphics.isFullscreen() ? "window" : "fullscreen";
-        game.unitFont3.setColor(Color.valueOf("4FB9AF"));
-        game.unitFont3.draw(game.batch, screenModeText, menuHitbox.x, menuHitbox.y + 42, menuHitbox.width, Align.center, false);
-
-        game.batch.draw(logInfoBg, 240, 20, GameConfig.VIRTUAL_WIDTH - 260, 200);
-        if (selectedUnit != null) {
-            game.batch.draw(unitInfoBg, 10, 20, 300, 400);
-        }
-    }
-
-    private void drawGameOverOverlay() {
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        shape.setProjectionMatrix(stage.getViewport().getCamera().combined);
-        shape.begin(ShapeRenderer.ShapeType.Filled);
-        shape.setColor(0, 0, 0, 0.7f);
-        shape.rect(0, 0, GameConfig.VIRTUAL_WIDTH, GameConfig.VIRTUAL_HEIGHT);
-        shape.end();
-    }
-
     private void update(float delta) {
         if (gameOver) return;
+
         if (turnManager.getCurrentTurn().equals(playerTeam)) {
             aiBusy = false;
             aiDelay = 0;
             handleInput();
         } else {
+            // AI 턴 처리
             aiDelay += delta;
             if (aiDelay >= 1.0f) {
                 if (aiBusy) {
@@ -282,39 +188,120 @@ public class BattleScreen extends ScreenAdapter {
         }
     }
 
-    private void cleanupDeadUnits() {
-        for (int i = units.size - 1; i >= 0; i--) {
-            Unit u = units.get(i);
-            if (u.status == Unit.DEAD) {
-                if (selectedUnit == u) selectedUnit = null;
-                units.removeIndex(i);
+    private void handleInput() {
+        if (gameOver) return;
+
+        Vector2 touchPos = new Vector2(Gdx.input.getX(), Gdx.input.getY());
+        stage.getViewport().unproject(touchPos);
+        float mx = touchPos.x;
+        float my = touchPos.y;
+
+        // 전체화면 토글 버튼 처리
+        if (Gdx.input.justTouched() && menuHitbox.contains(mx, my)) {
+            game.playClick(1.0f);
+            toggleFullscreen();
+            return;
+        }
+
+        if (!turnManager.getCurrentTurn().equals(playerTeam) || aiBusy) return;
+
+        hoveredGrid = IsoUtils.screenToGrid(mx, my);
+
+        if (Gdx.input.justTouched()) {
+            // 유닛 이동 처리
+            if (selectedUnit != null) {
+                int tx = (int) hoveredGrid.x;
+                int ty = (int) hoveredGrid.y;
+                if (tx >= 0 && ty >= 0 && selectedUnit.team.equals(playerTeam) && BoardManager.canMoveTo(selectedUnit, tx, ty, units)) {
+                    selectedUnit.setPosition(tx, ty);
+                    processAutoAttack(playerTeam);
+                    selectedUnit = null;
+                    aiBusy = true;
+                    turnManager.endTurn();
+                    return;
+                }
             }
+            // 유닛 선택 처리
+            Unit clickedUnit = null;
+            for (Unit u : units) {
+                if (u.isAlive() && unitRenderer.isMouseInsideHitbox(u, mx, my)) {
+                    clickedUnit = u;
+                    break;
+                }
+            }
+            selectedUnit = clickedUnit;
         }
     }
 
+    private void toggleFullscreen() {
+        if (Gdx.graphics.isFullscreen()) {
+            Gdx.graphics.setWindowedMode((int) GameConfig.VIRTUAL_WIDTH, (int) GameConfig.VIRTUAL_HEIGHT);
+        } else {
+            Gdx.graphics.setFullscreenMode(Gdx.graphics.getDisplayMode());
+        }
+    }
+
+    private void drawGameOverOverlay() {
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        shape.begin(ShapeRenderer.ShapeType.Filled);
+        shape.setColor(0, 0, 0, 0.7f);
+        shape.rect(0, 0, GameConfig.VIRTUAL_WIDTH, GameConfig.VIRTUAL_HEIGHT);
+        shape.end();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+    }
+
     public void processAutoAttack(String team) {
+        // 향상된 for문(for : units) 대신 인덱스 for문을 사용하여 반복자 충돌 방지
         for (int i = 0; i < units.size; i++) {
             Unit attacker = units.get(i);
+
+            // 유닛이 살아있고 해당 팀일 때만 공격 시도
             if (attacker != null && attacker.isAlive() && attacker.team.equals(team)) {
+                // 내부에서 다시 units를 검색해도 이제 안전합니다.
                 Unit target = BoardManager.findBestTargetInRange(attacker, units);
-                if (target != null) performAttack(attacker, target);
+                if (target != null) {
+                    performAttack(attacker, target);
+                }
             }
         }
     }
 
     public void performAttack(Unit attacker, Unit target) {
-        if (target == null || !target.isAlive()) return;
-        int dmg = attacker.team.equals(turnManager.getCurrentTurn()) ? attacker.stat.atk() : attacker.stat.counterAtk();
-        target.currentHp -= dmg;
+        if (attacker == null || target == null || !target.isAlive() || !attacker.isAlive()) return;
+
+        // 1. 공격 주도자의 타격 (항상 현재 턴인 유닛이 호출함)
+        boolean isAttackerTurn = turnManager.isMyTurn(attacker.team);
+        int atkDmg = attacker.getPower(isAttackerTurn);
+        target.currentHp -= atkDmg;
+
+        // TODO: 전투 로그 추가 (예: gameUI.addLog(attacker.name + "의 공격! " + atkDmg + " 데미지"))
+
+        // 2. 타겟 사망 확인
         if (target.currentHp <= 0) {
             target.currentHp = 0;
-            handleDeath(attacker, target);
+            handleDeath(target);
+            return; // 사망 시 반격 불가
+        }
+
+        // 3. 수비자의 반격 (조건: 타겟이 생존해 있고 공격자가 내 사거리 안인가?)
+        if (target.canReach(attacker)) {
+            // 반격자는 현재 턴의 주인이 아니므로 false가 전달되어 counterAtk가 적용됨
+            int counterDmg = target.getPower(turnManager.isMyTurn(target.team));
+            attacker.currentHp -= counterDmg;
+
+            // TODO: 전투 로그 추가 (예: gameUI.addLog(target.name + "의 반격! " + counterDmg + " 데미지"))
+
+            if (attacker.currentHp <= 0) {
+                attacker.currentHp = 0;
+                handleDeath(attacker);
+            }
         }
     }
 
-    private void handleDeath(Unit attacker, Unit target) {
+    private void handleDeath(Unit target) {
         target.status = Unit.DEAD;
 
+        // 보스 사망 시 승리, 플레이어 영웅 사망 시 패배
         boolean isEnemyBoss = target.team.equals(aiTeam) && !target.stat.skillName().equals("일반 병사");
         boolean isPlayerHero = target.team.equals(playerTeam) && target.name.equals(heroName);
 
@@ -333,23 +320,20 @@ public class BattleScreen extends ScreenAdapter {
         table.center();
 
         String resultText = isVictory ? "VICTORY!" : "DEFEAT...";
-        Color titleColor = isVictory ? Color.GOLD : Color.FIREBRICK;
-        Label titleLabel = new Label(resultText, new Label.LabelStyle(game.titleFont, titleColor));
+        Label titleLabel = new Label(resultText, new Label.LabelStyle(game.titleFont, isVictory ? Color.GOLD : Color.FIREBRICK));
         table.add(titleLabel).padBottom(60).row();
 
-        if (isVictory) {
-            if (stageLevel < 7) {
-                Label nextBtn = new Label("[ NEXT STAGE ]", new Label.LabelStyle(game.mainFont, Color.valueOf("4FB9AF")));
-                nextBtn.addListener(new ClickListener() {
-                    @Override
-                    public void clicked(InputEvent event, float x, float y) {
-                        game.playClick(1.0f);
-                        game.setScreen(new BattleScreen(game, playerTeam, heroName, heroStat, stageLevel + 1));
-                    }
-                });
-                table.add(nextBtn).padBottom(20).row();
-            }
-        } else {
+        if (isVictory && stageLevel < 7) {
+            Label nextBtn = new Label("[ NEXT STAGE ]", new Label.LabelStyle(game.mainFont, Color.valueOf("4FB9AF")));
+            nextBtn.addListener(new ClickListener() {
+                @Override
+                public void clicked(InputEvent event, float x, float y) {
+                    game.playClick(1.0f);
+                    game.setScreen(new BattleScreen(game, playerTeam, heroName, heroStat, stageLevel + 1));
+                }
+            });
+            table.add(nextBtn).padBottom(20).row();
+        } else if (!isVictory) {
             Label retryBtn = new Label("[ RE-TRY ]", new Label.LabelStyle(game.mainFont, Color.WHITE));
             retryBtn.addListener(new ClickListener() {
                 @Override
@@ -370,8 +354,16 @@ public class BattleScreen extends ScreenAdapter {
             }
         });
         table.add(homeBtn);
-
         stage.addActor(table);
+    }
+
+    private void cleanupDeadUnits() {
+        for (int i = units.size - 1; i >= 0; i--) {
+            if (units.get(i).status == Unit.DEAD) {
+                if (selectedUnit == units.get(i)) selectedUnit = null;
+                units.removeIndex(i);
+            }
+        }
     }
 
     @Override
@@ -384,11 +376,8 @@ public class BattleScreen extends ScreenAdapter {
         if (shape != null) shape.dispose();
         if (unitRenderer != null) unitRenderer.dispose();
         if (stage != null) stage.dispose();
+        if (gameUI != null) gameUI.dispose();
         battleBg.dispose();
-        logInfoBg.dispose();
-        stageInfoBg.dispose();
-        unitInfoBg.dispose();
-        timerBoxBg.dispose();
         tileTop.dispose();
     }
 }

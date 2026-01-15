@@ -29,6 +29,17 @@ configure(subprojects) {
   apply plugin: 'java-library'
   java.sourceCompatibility = 21
 
+  // --- [여기서부터 추가] ---
+  // 자바 컴파일 시 UTF-8 인코딩 설정
+  tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+  }
+
+  // 자바 실행(JavaExec) 시 JVM 인자에 UTF-8 설정 추가
+  tasks.withType(JavaExec) {
+    jvmArgs += "-Dfile.encoding=UTF-8"
+  }
+
   // From https://lyze.dev/2021/04/29/libGDX-Internal-Assets-List/
   // The article can be helpful when using assets.txt in your project.
   tasks.register('generateAssetList') {

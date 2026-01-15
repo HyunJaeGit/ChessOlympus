@@ -26,7 +26,7 @@ public class MenuScreen extends ScreenAdapter {
 
     private Label volStatusLabel;
     private Label screenBtn;
-    private int volumeStep = 5; // 기본 볼륨 50%
+    private int volumeStep = 2; // 기본 볼륨 20%
 
     private final Color COLOR_GOLD = Color.valueOf("D4AF37");
     private final Color COLOR_MAIN = Color.valueOf("E0E0E0");

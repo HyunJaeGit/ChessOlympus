@@ -22,26 +22,36 @@ public class UnitData {
         }
     }
 
-    // --- [하데스 진영 영웅 (플레이어 선택군)] ---
-    public static final Stat SOM_JUMEOK = new Stat(160, 45, 30, 1, 1, "불굴", 400, "솜주먹");
-    public static final Stat KIMA = new Stat(110, 50, 15, 3, 1, "도약", 550, "키마");
-    public static final Stat CHAN_NA = new Stat(125, 35, 20, 1, 1, "그림자 습격", 350, "챈나");
-    public static final Stat THING_GYUL = new Stat(95, 15, 5, 1, 2, "신의 가호", 300, "띵귤");
-    public static final Stat YEON_CHOROK = new Stat(85, 35, 5, 2, 3, "연발 사격", 500, "연초록");
+    // --- [하데스 진영 영웅 (플레이어)] ---
+    // 솜주먹: 전형적인 탱커. 반격력이 상대적으로 높음 (약 66%)
+    public static final Stat SOM_JUMEOK = new Stat(160, 45, 30,
+        1, 1, "불굴", 400, "솜주먹");
+    // 키마: 기동력 중심. 반격은 매우 취약 (30%)
+    public static final Stat KIMA = new Stat(110, 50, 15,
+        3, 1, "도약", 550, "키마");
+    // 챈나: 밸런스형.
+    public static final Stat CHAN_NA = new Stat(125, 35, 17,
+        1, 1, "그림자 습격", 350, "챈나");
+    // 띵귤: 서포터/원거리. 반격력은 상징적인 수준.
+    public static final Stat THING_GYUL = new Stat(95, 20, 5,
+        1, 2, "신의 가호", 300, "띵귤");
+    // 연초록: 저격수. 사거리가 긴 대신 근접 반격은 최악.
+    public static final Stat YEON_CHOROK = new Stat(85, 35, 5,
+        2, 3, "연발 사격", 500, "연초록");
 
-    // --- [제우스 진영 영웅 (스테이지별 보스)] ---
-    // 스테이지 1~6 보스들
+    // --- [제우스 진영 영웅 (보스)] ---
     public static final Stat COCO_MI = new Stat(110, 20, 10, 1, 2, "치유의 빛", 350, "코코미");
-    public static final Stat HINU_HINU = new Stat(130, 30, 25, 2, 1, "신속", 400, "히누히누");
+    public static final Stat HINU_HINU = new Stat(130, 35, 15, 2, 1, "신속", 400, "히누히누");
     public static final Stat YOON_IJE = new Stat(140, 30, 20, 1, 1, "지혜의 방패", 400, "윤이제");
-    public static final Stat HARU_BI = new Stat(170, 40, 35, 1, 1, "거인의 힘", 450, "하루비");
+    public static final Stat HARU_BI = new Stat(170, 45, 25, 1, 1, "거인의 힘", 450, "하루비");
     public static final Stat SI_MONG = new Stat(100, 55, 10, 3, 1, "암습", 600, "시몽");
-    public static final Stat MA_RONI = new Stat(210, 25, 15, 1, 1, "왕의 위엄", 700, "마로니");
+    public static final Stat MA_RONI = new Stat(210, 30, 15, 1, 1, "왕의 위엄", 700, "마로니");
 
-    // 스테이지 7: 끝판 대장 고세구
-    public static final Stat GO_SEGU = new Stat(400, 60, 20, 1, 5, "천상의 화살", 1500, "고세구");
+    // 스테이지 7: 최종 보스 (압도적인 사거리와 체력)
+    public static final Stat GO_SEGU = new Stat(450, 60, 25, 1, 5, "천상의 화살", 1500, "고세구");
 
-    // --- [일반 병사 (부대 구성용)] ---
+    // --- [일반 병사] ---
+    // 공격 20 / 반격 10: 플레이어가 먼저 때려야 하는 이유를 명확히 함
     public static final Stat HADES_SOLDIER = new Stat(100, 20, 10, 1, 1, "일반 병사", 100, "하데스일반병사");
     public static final Stat ZEUS_SOLDIER = new Stat(100, 20, 10, 1, 1, "일반 병사", 100, "제우스일반병사");
 

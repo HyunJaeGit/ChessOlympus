@@ -55,20 +55,20 @@ public class HadesGame extends Game {
         this.setScreen(new MenuScreen(this));
     }
 
-    // [추가] 배경음악 리소스 로드 메서드
+    // 배경음악 리소스 로드 메서드
     private void loadBackgroundMusic() {
         // 메뉴 음악 (bgm.mp3)
         if (Gdx.files.internal("music/bgm.mp3").exists()) {
             menuBgm = Gdx.audio.newMusic(Gdx.files.internal("music/bgm.mp3"));
             menuBgm.setLooping(true);
-            menuBgm.setVolume(0.5f);
+            menuBgm.setVolume(0.3f);
         }
 
         // 배틀 음악 (bgm-battle.mp3)
         if (Gdx.files.internal("music/bgm-battle.mp3").exists()) {
             battleBgm = Gdx.audio.newMusic(Gdx.files.internal("music/bgm-battle.mp3"));
             battleBgm.setLooping(true);
-            battleBgm.setVolume(0.4f);
+            battleBgm.setVolume(0.3f);
         }
     }
 
