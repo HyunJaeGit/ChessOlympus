@@ -16,7 +16,7 @@ import com.hades.game.utils.FontFactory;
 public class HadesGame extends Game {
 
     public SpriteBatch batch;
-    public BitmapFont font, mainFont, detailFont, titleFont, subtitleFont, unitFont, detailFont2, unitFont2, unitFont3;
+    public BitmapFont font, mainFont, detailFont, titleFont, subtitleFont, unitFont, detailFont2, unitFont2, unitFont3, cardFont;
     public Sound clickSound;
 
     // [추가] 배경음악 관리용 객체
@@ -59,7 +59,8 @@ public class HadesGame extends Game {
         mainFont = FontFactory.createFont("Galmuri14", 36, Color.WHITE, 2.5f);
         detailFont = FontFactory.createFont("KERISBAEUM_L", 28, Color.WHITE, 2.0f);
         unitFont = FontFactory.createFont("KERISBAEUM_L", 20, Color.WHITE, 2.0f);
-        unitFont2 = FontFactory.createFont("Galmuri14", 26, Color.WHITE, 2.0f);
+        unitFont2 = FontFactory.createFont("Galmuri14", 22, Color.WHITE, 2.0f);
+        cardFont = FontFactory.createFont("KERISBAEUM_L", 16, Color.WHITE, 2.0f);
         unitFont3 = FontFactory.createFont("KERISBAEUM_L", 18, Color.WHITE, 2.0f);
         detailFont2 = FontFactory.createFont("KERISBAEUM_L", 32, Color.WHITE, 2.0f);
         font = mainFont;
