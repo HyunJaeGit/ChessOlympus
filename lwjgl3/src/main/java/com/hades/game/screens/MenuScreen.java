@@ -14,6 +14,8 @@ import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.hades.game.HadesGame;
 import com.hades.game.constants.GameConfig;
+import com.hades.game.screens.cutscene.BaseCutsceneScreen;
+import com.hades.game.screens.cutscene.CutsceneManager;
 import com.hades.game.view.UI; // 전역 UI 클래스 임포트
 
 public class MenuScreen extends ScreenAdapter {
@@ -104,7 +106,11 @@ public class MenuScreen extends ScreenAdapter {
             @Override
             public void clicked(InputEvent event, float x, float y) {
                 game.playClick(1.0f);
-                game.setScreen(new HeroSelectionScreen(game, "HADES", game.menuBgm));
+                game.setScreen(new BaseCutsceneScreen(
+                    game,
+                    CutsceneManager.getIntroData(),
+                    new HeroSelectionScreen(game, "HADES", game.menuBgm)
+                )); // 컷씬으로 연결
             }
         });
         mainTable.add(startBtn).padBottom(20).row();
