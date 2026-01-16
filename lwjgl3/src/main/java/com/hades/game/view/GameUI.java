@@ -57,7 +57,7 @@ public class GameUI implements Disposable {
 
         // 3. 우측 상단 메뉴 박스
         float menuHitboxHeight = menuHitbox.height - 10; // 메뉴 히트박스를 원래 높이보다 20픽셀 줄임
-        float menuHitboxwidth = menuHitbox.height - 10; // 메뉴 히트박스를 원래 높이보다 20픽셀 줄임
+        float menuHitboxwidth = menuHitbox.width - 10; // 메뉴 히트박스를 원래 높이보다 20픽셀 줄임
         float adjustedY = menuHitbox.y + 10; // 위로 10픽셀 이동 (취향에 따라 조정)
 
         game.batch.draw(timerBoxBg, menuHitbox.x, adjustedY, menuHitboxwidth, menuHitboxHeight);
