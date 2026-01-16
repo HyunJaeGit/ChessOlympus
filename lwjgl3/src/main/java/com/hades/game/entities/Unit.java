@@ -6,7 +6,6 @@ import com.badlogic.gdx.utils.Disposable;
 import com.hades.game.constants.UnitData;
 
 public class Unit implements Disposable {
-    // 병과 구분을 위한 Enum
     public enum UnitClass {
         HERO, SHIELD, KNIGHT, ARCHER, CHARIOT, SAINT
     }
@@ -19,17 +18,15 @@ public class Unit implements Disposable {
     public final UnitData.Stat stat;
     public final UnitClass unitClass;
 
-    // 카드용 고화질 일러스트와 필드용 체스말 이미지를 분리하여 저장합니다.
-    public final Texture portrait;     // UI 카드용 일러스트
-    public final Texture fieldTexture;  // 체스판 위에 올라가는 유닛 이미지
+    public final Texture portrait;      // images/character/ 폴더의 일러스트
+    public final Texture fieldTexture; // images/units/ 폴더의 체스말
 
     public int currentHp;
     public int gridX;
     public int gridY;
     public int status = ALIVE;
 
-    // 생성자: 두 폴더에서 각각의 이미지를 로드합니다.
-    public Unit(String name, String team, UnitData.Stat stat, UnitClass unitClass, int x, int y) {
+    public Unit(String name, String team, UnitData.Stat stat, String imageKey, UnitClass unitClass, int x, int y) {
         this.name = name;
         this.team = team;
         this.stat = stat;
@@ -38,46 +35,66 @@ public class Unit implements Disposable {
         this.gridX = x;
         this.gridY = y;
 
-        // 1. 일러스트 로드 (images/character 폴더)
-        String portraitPath = "images/character/" + stat.imageName() + ".png";
-        this.portrait = new Texture(Gdx.files.internal(portraitPath));
+        // 1. 일러스트 로드 (images/character/)
+        // imageKey가 "고세구"라면 "images/character/고세구.png"를 찾습니다.
+        String portraitPath = "images/character/" + imageKey + ".png";
+        this.portrait = loadSafeTexture(portraitPath);
 
-        // 2. 체스말 유닛 이미지 로드 (images/units 폴더)
-        // 파일명이 동일하므로 경로만 다르게 설정합니다.
-        String fieldPath = "images/units/" + stat.imageName() + ".png";
-        this.fieldTexture = new Texture(Gdx.files.internal(fieldPath));
+        // 2. 체스말 로드 (images/units/)
+        String fieldFileName;
+        if (unitClass == UnitClass.HERO) {
+            fieldFileName = imageKey; // 예: 고세구
+        } else {
+            String prefix = team.equalsIgnoreCase("HADES") ? "하데스" : "제우스";
+            fieldFileName = prefix + imageKey; // 예: 하데스기마병
+        }
+
+        String fieldPath = "images/units/" + fieldFileName + ".png";
+        this.fieldTexture = loadSafeTexture(fieldPath);
     }
 
-    // 공격력 또는 반격력 반환
+    // 파일 로드 실패 시 게임이 꺼지지 않도록 처리하는 안전 메서드
+    private Texture loadSafeTexture(String path) {
+        try {
+            if (Gdx.files.internal(path).exists()) {
+                Texture tex = new Texture(Gdx.files.internal(path));
+                tex.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+                return tex;
+            } else {
+                // 파일이 없으면 콘솔에 에러를 찍고 기본 로고 이미지를 반환합니다.
+                Gdx.app.error("Unit", "파일을 찾을 수 없습니다: " + path);
+                return new Texture(Gdx.files.internal("libgdx.png"));
+            }
+        } catch (Exception e) {
+            Gdx.app.error("Unit", "예외 발생: " + path);
+            return new Texture(Gdx.files.internal("libgdx.png"));
+        }
+    }
+
     public int getPower(boolean isMyTurn) {
         return isMyTurn ? stat.atk() : stat.counterAtk();
     }
 
-    // 사거리 내에 타겟이 있는지 확인
     public boolean canReach(Unit target) {
         if (target == null) return false;
         int dist = Math.abs(this.gridX - target.gridX) + Math.abs(this.gridY - target.gridY);
         return dist <= this.stat.range();
     }
 
-    // 생존 여부 확인
     public boolean isAlive() {
         return status == ALIVE && currentHp > 0;
     }
 
-    // 위치 갱신
     public void setPosition(int x, int y) {
         this.gridX = x;
         this.gridY = y;
     }
 
-    // 메모리 해제: 생성된 두 개의 텍스처를 모두 제거합니다.
     @Override
     public void dispose() {
-        if (portrait != null) {
-            portrait.dispose();
-        }
-        if (fieldTexture != null) {
+        if (portrait != null) portrait.dispose();
+        // portrait와 fieldTexture가 동일 파일일 수 있으므로 중복 해제 방지
+        if (fieldTexture != null && fieldTexture != portrait) {
             fieldTexture.dispose();
         }
     }
