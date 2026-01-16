@@ -57,12 +57,12 @@ public class HadesGame extends Game {
         titleFont = FontFactory.createFont("Galmuri14", 66, Color.GOLD, 6.0f, Color.BLACK, new Color(0,0,0,0.5f));
         subtitleFont = FontFactory.createFont("Galmuri14", 44, Color.LIGHT_GRAY, 4.0f);
         mainFont = FontFactory.createFont("Galmuri14", 36, Color.WHITE, 2.5f);
-        detailFont = FontFactory.createFont("KERISBAEUM_L", 28, Color.WHITE, 2.0f);
-        unitFont = FontFactory.createFont("KERISBAEUM_L", 20, Color.WHITE, 2.0f);
+        detailFont = FontFactory.createFont("Galmuri14", 24, Color.WHITE, 2.0f);
+        detailFont2 = FontFactory.createFont("Galmuri14", 32, Color.WHITE, 2.0f);
+        unitFont = FontFactory.createFont("Galmuri14", 20, Color.WHITE, 2.0f);
         unitFont2 = FontFactory.createFont("Galmuri14", 22, Color.WHITE, 2.0f);
-        cardFont = FontFactory.createFont("KERISBAEUM_L", 16, Color.WHITE, 2.0f);
-        unitFont3 = FontFactory.createFont("KERISBAEUM_L", 18, Color.WHITE, 2.0f);
-        detailFont2 = FontFactory.createFont("KERISBAEUM_L", 32, Color.WHITE, 2.0f);
+        unitFont3 = FontFactory.createFont("Galmuri14", 16, Color.WHITE, 2.0f);
+        cardFont = FontFactory.createFont("Galmuri14", 14, Color.WHITE, 2.0f);
         font = mainFont;
 
         // 효과음 로드

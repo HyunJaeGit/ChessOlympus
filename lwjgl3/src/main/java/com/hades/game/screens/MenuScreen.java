@@ -54,23 +54,26 @@ public class MenuScreen extends ScreenAdapter {
     private void initUI() {
         Table mainTable = new Table();
         mainTable.setFillParent(true);
-        mainTable.center();
+        mainTable.top().padTop(100);
         stage.addActor(mainTable);
 
-        // 1. 타이틀 영역
+        // 1. 타이틀 섹션
         mainTable.add(new Label("CHESS OLYMPUS", new Label.LabelStyle(game.titleFont, COLOR_GOLD))).padBottom(5).row();
-        mainTable.add(new Label("HADES VS ZEUS", new Label.LabelStyle(game.subtitleFont, COLOR_SUB))).padBottom(40).row();
+        mainTable.add(new Label("HADES VS ZEUS", new Label.LabelStyle(game.subtitleFont, COLOR_SUB))).padBottom(60).row();
 
-        // 2. 볼륨 조절 영역
-        Table volumeTable = new Table();
+        // 2. 중간 메뉴 그룹 (Compact Table)
+        Table menuGroup = new Table();
+
+        // --- BGM 설정 행 ---
+        Table volumeRow = new Table();
         volStatusLabel = new Label((volumeStep * 10) + "%", new Label.LabelStyle(game.mainFont, COLOR_POINT));
         Label volDown = new Label(" - ", new Label.LabelStyle(game.mainFont, COLOR_MAIN));
         Label volUp = new Label(" + ", new Label.LabelStyle(game.mainFont, COLOR_MAIN));
 
-        // 마우스 오버 기능 (볼륨 업, 다운)
         UI.addHoverEffect(game, volDown, COLOR_MAIN, COLOR_GOLD);
         UI.addHoverEffect(game, volUp, COLOR_MAIN, COLOR_GOLD);
 
+        // 볼륨 클릭 리스너 추가
         volUp.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
@@ -84,23 +87,27 @@ public class MenuScreen extends ScreenAdapter {
             }
         });
 
-        volumeTable.add(new Label("BGM ", new Label.LabelStyle(game.mainFont, COLOR_MAIN)));
-        volumeTable.add(volStatusLabel).width(80).align(Align.center);
-        volumeTable.add(volDown).padRight(10);
-        volumeTable.add(volUp).padLeft(10);
-        mainTable.add(volumeTable).padBottom(20).row();
+        volumeRow.add(new Label("BGM", new Label.LabelStyle(game.mainFont, COLOR_MAIN))).padRight(20);
+        volumeRow.add(volDown).padRight(10);
+        volumeRow.add(volStatusLabel).width(80).align(Align.center);
+        volumeRow.add(volUp).padLeft(10);
+        menuGroup.add(volumeRow).padBottom(15).row();
 
-        // 3. 화면 모드 버튼
-        screenBtn = new Label(Gdx.graphics.isFullscreen() ? "창모드 전환" : "전체화면 전환", new Label.LabelStyle(game.mainFont, COLOR_POINT));
+        // --- 화면 모드 버튼 행 (문제 해결 포인트) ---
+        screenBtn = new Label(Gdx.graphics.isFullscreen() ? "WINDOW" : "FULLSCREEN", new Label.LabelStyle(game.mainFont, COLOR_POINT));
         UI.addHoverEffect(game, screenBtn, COLOR_POINT, COLOR_MAIN);
+        // 클릭 리스너 추가
         screenBtn.addListener(new ClickListener() {
             @Override
-            public void clicked(InputEvent event, float x, float y) { game.playClick(1.0f); toggleFullscreen(); }
+            public void clicked(InputEvent event, float x, float y) {
+                game.playClick(1.0f);
+                toggleFullscreen();
+            }
         });
-        mainTable.add(screenBtn).padBottom(30).row();
+        menuGroup.add(screenBtn).padBottom(15).row();
 
-        // 4. 게임 시작 버튼
-        Label startBtn = new Label("게임 시작", new Label.LabelStyle(game.mainFont, COLOR_MAIN));
+        // --- 게임 시작 버튼 행 ---
+        Label startBtn = new Label("GAME START", new Label.LabelStyle(game.mainFont, COLOR_MAIN));
         UI.addHoverEffect(game, startBtn, COLOR_MAIN, COLOR_GOLD);
         startBtn.addListener(new ClickListener() {
             @Override
@@ -110,31 +117,33 @@ public class MenuScreen extends ScreenAdapter {
                     game,
                     CutsceneManager.getIntroData(),
                     new HeroSelectionScreen(game, "HADES", game.menuBgm)
-                )); // 컷씬으로 연결
+                ));
             }
         });
-        mainTable.add(startBtn).padBottom(20).row();
+        menuGroup.add(startBtn).padBottom(15).row();
 
-        // 5. 종료 버튼
-        Label exitBtn = new Label("게임 종료", new Label.LabelStyle(game.mainFont, COLOR_SUB));
+        // --- 종료 버튼 행 ---
+        Label exitBtn = new Label("EXIT GAME", new Label.LabelStyle(game.mainFont, COLOR_SUB));
         UI.addHoverEffect(game, exitBtn, COLOR_SUB, Color.FIREBRICK);
         exitBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) { Gdx.app.exit(); }
         });
-        mainTable.add(exitBtn).padBottom(60).row();
+        menuGroup.add(exitBtn).row();
 
-        // 저작권 정보 테이블
+        mainTable.add(menuGroup).center();
+
+        // 3. 하단 저작권 정보
         Table bottomTable = new Table();
         bottomTable.setFillParent(true);
-        bottomTable.bottom().padBottom(20);
+        bottomTable.bottom().padBottom(30);
         stage.addActor(bottomTable);
 
         Label infoLabel = new Label(
-            "비영리/비홍보용 팬게임이며, 수익창출 및 무단 수정 배포를 금지합니다.\n" +
-                "모든 권리는 제작자 '데브케이'에 있습니다.\n" +
-                "문의 : fatking25@kakao.com",
-            new Label.LabelStyle(game.detailFont, Color.valueOf("555555"))
+            "비영리/비상업용 팬게임이며 수익창출을 금지합니다.\n " +
+                "모든 권리는 제작자 '데브케이'에 있습니다." +
+                "\n문의 : fatking25@kakao.com",
+            new Label.LabelStyle(game.detailFont, new Color(0.4f, 0.4f, 0.4f, 1f))
         );
         infoLabel.setAlignment(Align.center);
         bottomTable.add(infoLabel);

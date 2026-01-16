@@ -31,7 +31,7 @@ public class BaseCutsceneScreen extends ScreenAdapter {
     private String currentDisplayText = "";
     private int wordIndex = 0;
     private float timeCount = 0;
-    private final float wordSpeed = 0.15f; // 타이핑 속도를 조금 더 빠르게 조정
+    private final float wordSpeed = 0.3f; // 타이핑 속도 조정
 
     public BaseCutsceneScreen(HadesGame game, CutsceneData data, Screen nextScreen) {
         this.game = game;
@@ -60,7 +60,7 @@ public class BaseCutsceneScreen extends ScreenAdapter {
         root.setFillParent(true);
         stage.addActor(root);
 
-        Label.LabelStyle style = new Label.LabelStyle(game.mainFont, Color.WHITE);
+        Label.LabelStyle style = new Label.LabelStyle(game.detailFont2, Color.WHITE);
         storyLabel = new Label("", style);
         storyLabel.setAlignment(Align.center);
         storyLabel.setWrap(true);

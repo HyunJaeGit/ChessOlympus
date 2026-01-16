@@ -23,6 +23,8 @@ import com.hades.game.logic.AILogic;
 import com.hades.game.logic.BoardManager;
 import com.hades.game.logic.IsoUtils;
 import com.hades.game.logic.TurnManager;
+import com.hades.game.screens.cutscene.BaseCutsceneScreen;
+import com.hades.game.screens.cutscene.CutsceneManager;
 import com.hades.game.view.GameUI;
 import com.hades.game.view.MapRenderer;
 import com.hades.game.view.UnitRenderer;
@@ -328,7 +330,14 @@ public class BattleScreen extends ScreenAdapter {
             nextBtn.addListener(new ClickListener() {
                 @Override
                 public void clicked(InputEvent event, float x, float y) {
-                    game.setScreen(new BattleScreen(game, playerTeam, heroName, heroStat, stageLevel + 1));
+                    game.playClick();
+                    // 바로 BattleScreen으로 가지 않고, 컷씬 화면을 먼저 호출합니다.
+                    int nextStage = stageLevel + 1;
+                    game.setScreen(new BaseCutsceneScreen(
+                        game,
+                        CutsceneManager.getStageData(nextStage), // 다음 스테이지의 컷씬 데이터
+                        new BattleScreen(game, playerTeam, heroName, heroStat, nextStage) // 컷씬 끝난 후 갈 화면
+                    ));
                 }
             });
             UI.addHoverEffect(game, nextBtn, Color.valueOf("4FB9AF"), Color.WHITE);

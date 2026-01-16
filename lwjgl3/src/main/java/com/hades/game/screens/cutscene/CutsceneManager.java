@@ -10,11 +10,19 @@ public class CutsceneManager {
     static {
         // [Stage 0] 인트로 데이터 - 이 부분이 없어서 NullPointerException이 발생했습니다.
         stageDataMap.put(0, new CutsceneData(
-            new String[]{"images/cutscene/intro-1.png"},
             new String[]{
-                "올림포스의 꼭대기, 제우스는 명계의 왕 하데스를 반역자로 선포했다.",
-                "신들의 전쟁에서 패배한 하데스는 깊은 연옥에 갇혔고,",
-                "이제 영웅들은 빼앗긴 권능을 되찾기 위한 반격을 시작한다."
+                "images/cutscene/intro-1.png", // 올림포스의 꼭대기...
+                "images/cutscene/intro-2.png", // 제우스 반역자 선포...
+                "images/cutscene/intro-3.png", // 하데스 패배...
+                "images/cutscene/intro-4.png", // 영웅들의 반격...
+            },
+            new String[]{
+                "올림포스의 꼭대기,",
+                "제우스는 명계의 왕 하데스를 반역자로 선포했다.",
+                "신들의 전쟁에서 패배한 하데스는",
+                "완전한 음지... 연옥에 갇혔고,",
+                "이제 하데스의 영웅들은",
+                "빼앗긴 권능을 되찾기 위한 반격을 시작한다."
             }
         ));
 
@@ -23,8 +31,8 @@ public class CutsceneManager {
             new String[]{"images/cutscene/stage-1.png"},
             new String[]{
                 "지상으로 향하는 첫 번째 관문, 아케론.",
-                "제우스의 인장에 의해 영웅들의 권능은 봉인된 상태입니다.",
-                "오직 전략과 무력으로 이 관문을 돌파해야 합니다."
+                "제우스의 인장에 의해 영웅들의 권능은 봉인되었다.",
+                "전략과 무력으로 이 관문을 돌파해야 한다."
             }
         ));
 

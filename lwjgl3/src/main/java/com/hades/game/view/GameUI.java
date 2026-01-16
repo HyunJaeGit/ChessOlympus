@@ -3,7 +3,6 @@ package com.hades.game.view;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Array;
@@ -18,15 +17,13 @@ public class GameUI implements Disposable {
     private Texture stageInfoBg;
     private Texture unitInfoBg;
     private Texture timerBoxBg;
-    private ShapeRenderer debugShape; // 디버그용 그리기 도구
 
     private Array<String> battleLogs;
-    private static final int MAX_LOGS = 5; // 화면에 표시될 전투 로그 최대 줄 수
+    private static final int MAX_LOGS = 4; // 화면에 표시될 전투 로그 최대 줄 수
 
     public GameUI(HadesGame game) {
         this.game = game;
         this.battleLogs = new Array<>();
-        this.debugShape = new ShapeRenderer(); // 초기화
         loadResources();
     }
 
@@ -55,8 +52,8 @@ public class GameUI implements Disposable {
         game.unitFont2.setColor(currentTurn.equals(playerTeam) ? Color.LIME : Color.RED);
         game.unitFont2.draw(game.batch, currentTurn.equals(playerTeam) ? "YOUR TURN" : "ENEMY TURN", 40, GameConfig.VIRTUAL_HEIGHT - 110);
 
-        // 3. 우측 상단 메뉴 박스
-        float menuHitboxHeight = menuHitbox.height - 18;
+        // 3. 우측 상단 메뉴 박스 (창 모드 텍스트)
+        float menuHitboxHeight = menuHitbox.height - 14;
         float menuHitboxwidth = menuHitbox.width - 10;
         float adjustedY = menuHitbox.y + 10;
 
@@ -66,31 +63,27 @@ public class GameUI implements Disposable {
         game.unitFont3.draw(game.batch, screenModeText, menuHitbox.x, menuHitbox.y + 45, menuHitbox.width, Align.center, false);
 
         // 4. 전투 로그창 섹션
-        // 창의 위치와 크기
-        float logBgX = 400; // 로그창 배경의 시작 X
-        float logBgY = 15;  // 로그창 배경의 시작 Y
-        float logWidth = 800; // 로그창의 가로 길이 (고정)
-        float logHeight = 200; // 로그창의 세로 길이 (고정)
+        float logBgX = 400;
+        float logBgY = 10;
+        float logWidth = 800;
+        float logHeight = 240;
 
-        // 배경 그리기 (이제 logX를 바꿔도 크기가 변하지 않습니다)
         game.batch.draw(logInfoBg, logBgX, logBgY, logWidth, logHeight);
 
-        // 전투 로그 텍스트 위치 설정
-        float textStartX = logBgX + 150; // 배경 시작점에서 오른쪽으로 50픽셀 안쪽부터 글자 시작
-        game.unitFont3.setColor(Color.LIGHT_GRAY); // 텍스트 컬러
+        float textStartX = logBgX + 150;
 
-        // 전투 로그 텍스트 출력
         for (int i = 0; i < battleLogs.size; i++) {
             String logLine = battleLogs.get(i);
-            // 로그 내용에 적 팀 이름(ZEUS)이나 "적"이라는 단어가 있으면 빨간색으로 표시
-            // playerTeam이 HADES라면, ZEUS가 들어간 로그는 적의 행동입니다.
+
+            // 로그 내용에 따른 색상 분기
             if (logLine.contains("ZEUS") || logLine.contains("적 ") || logLine.contains("패배")) {
-                game.unitFont3.setColor(Color.FIREBRICK); // 적의 행동은 어두운 빨강
+                game.unitFont3.setColor(Color.FIREBRICK);
             } else if (logLine.contains("HADES") || logLine.contains("승리")) {
-                game.unitFont3.setColor(Color.LIME); // 내 행동 중 강조할 것은 라임색 (선택사항)
+                game.unitFont3.setColor(Color.LIME);
             } else {
-                game.unitFont3.setColor(Color.LIGHT_GRAY); // 기본 로그는 밝은 회색
+                game.unitFont3.setColor(Color.LIGHT_GRAY);
             }
+
             float textY = logBgY + 160 - (i * 30);
             game.unitFont3.draw(game.batch, logLine, textStartX, textY);
         }
@@ -99,64 +92,25 @@ public class GameUI implements Disposable {
         if (selectedUnit != null) {
             renderUnitDetails(selectedUnit);
         }
-
-        // 6. 레이아웃 디버그 테두리 그리기 (테스트용)
-        // 주의: batch.end() 이후에 호출해야 도형이 이미지 위로 덮어씌워집니다.
-        game.batch.end();
-        drawDebugFrames(menuHitbox, selectedUnit);
-        game.batch.begin();
     }
 
-    // 테스트용 영역 시각화 메서드 (테스트 끝나면 비활성화)
-    private void drawDebugFrames(Rectangle menuHitbox, Unit selectedUnit) {
-        debugShape.setProjectionMatrix(game.batch.getProjectionMatrix());
-        debugShape.begin(ShapeRenderer.ShapeType.Line);
-
-        // 1 & 2 섹션: 스테이지 및 턴 정보 (노란색)
-        debugShape.setColor(Color.YELLOW);
-        debugShape.rect(20, GameConfig.VIRTUAL_HEIGHT - 120, 240, 110);
-
-        // 3 섹션: 메뉴 박스 (하늘색)
-        debugShape.setColor(Color.CYAN);
-        debugShape.rect(menuHitbox.x, menuHitbox.y, menuHitbox.width, menuHitbox.height);
-
-        // 4 섹션: 전투 로그창 (빨간색 - 텍스트 시작점 포함)
-        debugShape.setColor(Color.RED);
-        float logBgX = 400;
-        float logBgY = 15;
-        float logWidth = 900;
-        float logHeight = 200;
-        debugShape.rect(logBgX, logBgY, logWidth, logHeight); // 배경 영역
-        debugShape.line(logBgX + 150, logBgY, logBgX + 150, logBgY + logHeight); // 텍스트 시작선(textStartX)
-
-        // 5 섹션: 유닛 정보창 (녹색)
-        if (selectedUnit != null) {
-            debugShape.setColor(Color.GREEN);
-            debugShape.rect(10, 20, 300, 420);
-        }
-
-        debugShape.end();
-    }
-    // 유닛 카드 상세정보
-// 유닛 카드 상세정보 렌더링
     private void renderUnitDetails(Unit unit) {
         float uiX = 10;
         float uiY = 20;
 
-        // 배경 그리기
+        // 배경
         game.batch.draw(unitInfoBg, uiX, uiY, 300, 420);
 
-        // 유닛 일러스트 그리기 (Unit.java에서 로드한 portrait 사용)
+        // 일러스트
         if (unit.portrait != null) {
-            // 카드 프레임 중앙 위치에 맞춰 출력
-            game.batch.draw(unit.portrait, uiX + 25, uiY + 130, 250, 215);
+            game.batch.draw(unit.portrait, uiX + 65, uiY + 148, 160, 175);
         }
 
-        // 유닛 이름 출력
+        // 이름
         game.unitFont3.setColor(unit.unitClass == Unit.UnitClass.HERO ? Color.GOLD : Color.WHITE);
         game.unitFont3.draw(game.batch, unit.name, uiX + 60, uiY + 355);
 
-        // 스탯 정보 출력
+        // 스탯 정보
         game.cardFont.setColor(Color.WHITE);
         game.cardFont.draw(game.batch, "HP : " + unit.currentHp + " / " + unit.stat.hp(), uiX + 45, uiY + 105);
         game.cardFont.draw(game.batch, "ATK: " + unit.stat.atk() + " / CRT: " + unit.stat.counterAtk(), uiX + 45, uiY + 85);
@@ -165,10 +119,9 @@ public class GameUI implements Disposable {
 
     @Override
     public void dispose() {
-        logInfoBg.dispose();
-        stageInfoBg.dispose();
-        unitInfoBg.dispose();
-        timerBoxBg.dispose();
-        if (debugShape != null) debugShape.dispose(); // 레이아웃 디버그용 그리기 도구 메모리 청소
+        if (logInfoBg != null) logInfoBg.dispose();
+        if (stageInfoBg != null) stageInfoBg.dispose();
+        if (unitInfoBg != null) unitInfoBg.dispose();
+        if (timerBoxBg != null) timerBoxBg.dispose();
     }
 }
