@@ -5,9 +5,7 @@ import com.badlogic.gdx.ScreenAdapter;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
-import com.badlogic.gdx.scenes.scene2d.InputListener;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
@@ -16,6 +14,7 @@ import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.hades.game.HadesGame;
 import com.hades.game.constants.GameConfig;
+import com.hades.game.view.UI; // 전역 UI 클래스 임포트
 
 public class MenuScreen extends ScreenAdapter {
     private final HadesGame game;
@@ -24,7 +23,7 @@ public class MenuScreen extends ScreenAdapter {
 
     private Label volStatusLabel;
     private Label screenBtn;
-    private int volumeStep; // 전역 설정에서 가져옴
+    private int volumeStep;
 
     private final Color COLOR_GOLD = Color.valueOf("D4AF37");
     private final Color COLOR_MAIN = Color.valueOf("E0E0E0");
@@ -33,7 +32,6 @@ public class MenuScreen extends ScreenAdapter {
 
     public MenuScreen(HadesGame game) {
         this.game = game;
-        // 전역 볼륨값을 기준으로 현재 스텝 계산
         this.volumeStep = (int)(game.globalVolume * 10);
         this.stage = new Stage(new FitViewport(GameConfig.VIRTUAL_WIDTH, GameConfig.VIRTUAL_HEIGHT));
         this.backgroundTexture = new Texture(Gdx.files.internal("images/background/main.png"));
@@ -44,8 +42,6 @@ public class MenuScreen extends ScreenAdapter {
     @Override
     public void show() {
         Gdx.input.setInputProcessor(stage);
-
-        // 배틀 음악 정지 및 메뉴 음악 시작 (전역 볼륨 적용)
         if (game.battleBgm != null) game.battleBgm.stop();
         if (game.menuBgm != null && !game.menuBgm.isPlaying()) {
             game.menuBgm.setVolume(game.globalVolume);
@@ -59,18 +55,19 @@ public class MenuScreen extends ScreenAdapter {
         mainTable.center();
         stage.addActor(mainTable);
 
-        // 1. 타이틀
+        // 1. 타이틀 영역
         mainTable.add(new Label("CHESS OLYMPUS", new Label.LabelStyle(game.titleFont, COLOR_GOLD))).padBottom(5).row();
         mainTable.add(new Label("HADES VS ZEUS", new Label.LabelStyle(game.subtitleFont, COLOR_SUB))).padBottom(40).row();
 
-        // 2. 볼륨 조절
+        // 2. 볼륨 조절 영역
         Table volumeTable = new Table();
         volStatusLabel = new Label((volumeStep * 10) + "%", new Label.LabelStyle(game.mainFont, COLOR_POINT));
-        Label volDown = new Label(" [ - ] ", new Label.LabelStyle(game.mainFont, COLOR_MAIN));
-        Label volUp = new Label(" [ + ] ", new Label.LabelStyle(game.mainFont, COLOR_MAIN));
+        Label volDown = new Label(" - ", new Label.LabelStyle(game.mainFont, COLOR_MAIN));
+        Label volUp = new Label(" + ", new Label.LabelStyle(game.mainFont, COLOR_MAIN));
 
-        addHoverEffect(volDown, COLOR_MAIN, COLOR_GOLD);
-        addHoverEffect(volUp, COLOR_MAIN, COLOR_GOLD);
+        // 마우스 오버 기능 (볼륨 업, 다운)
+        UI.addHoverEffect(game, volDown, COLOR_MAIN, COLOR_GOLD);
+        UI.addHoverEffect(game, volUp, COLOR_MAIN, COLOR_GOLD);
 
         volUp.addListener(new ClickListener() {
             @Override
@@ -87,22 +84,22 @@ public class MenuScreen extends ScreenAdapter {
 
         volumeTable.add(new Label("BGM ", new Label.LabelStyle(game.mainFont, COLOR_MAIN)));
         volumeTable.add(volStatusLabel).width(80).align(Align.center);
-        volumeTable.add(volDown).padRight(5);
-        volumeTable.add(volUp).padLeft(5);
+        volumeTable.add(volDown).padRight(10);
+        volumeTable.add(volUp).padLeft(10);
         mainTable.add(volumeTable).padBottom(20).row();
 
         // 3. 화면 모드 버튼
-        screenBtn = new Label(Gdx.graphics.isFullscreen() ? "[ 창모드 전환 ]" : "[ 전체화면 전환 ]", new Label.LabelStyle(game.mainFont, COLOR_POINT));
-        addHoverEffect(screenBtn, COLOR_POINT, COLOR_MAIN);
+        screenBtn = new Label(Gdx.graphics.isFullscreen() ? "창모드 전환" : "전체화면 전환", new Label.LabelStyle(game.mainFont, COLOR_POINT));
+        UI.addHoverEffect(game, screenBtn, COLOR_POINT, COLOR_MAIN);
         screenBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) { game.playClick(1.0f); toggleFullscreen(); }
         });
         mainTable.add(screenBtn).padBottom(30).row();
 
-        // 4. 게임 시작
-        Label startBtn = new Label("[ 게임 시작 ]", new Label.LabelStyle(game.mainFont, COLOR_MAIN));
-        addHoverEffect(startBtn, COLOR_MAIN, COLOR_GOLD);
+        // 4. 게임 시작 버튼
+        Label startBtn = new Label("게임 시작", new Label.LabelStyle(game.mainFont, COLOR_MAIN));
+        UI.addHoverEffect(game, startBtn, COLOR_MAIN, COLOR_GOLD);
         startBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
@@ -112,16 +109,16 @@ public class MenuScreen extends ScreenAdapter {
         });
         mainTable.add(startBtn).padBottom(20).row();
 
-        // 5. 종료
-        Label exitBtn = new Label("[ 게임 종료 ]", new Label.LabelStyle(game.mainFont, COLOR_SUB));
-        addHoverEffect(exitBtn, COLOR_SUB, Color.FIREBRICK);
+        // 5. 종료 버튼
+        Label exitBtn = new Label("게임 종료", new Label.LabelStyle(game.mainFont, COLOR_SUB));
+        UI.addHoverEffect(game, exitBtn, COLOR_SUB, Color.FIREBRICK);
         exitBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) { Gdx.app.exit(); }
         });
         mainTable.add(exitBtn).padBottom(60).row();
 
-        // 하단 저작권 정보
+        // 저작권 정보 테이블
         Table bottomTable = new Table();
         bottomTable.setFillParent(true);
         bottomTable.bottom().padBottom(20);
@@ -140,28 +137,19 @@ public class MenuScreen extends ScreenAdapter {
     private void toggleFullscreen() {
         if (Gdx.graphics.isFullscreen()) {
             Gdx.graphics.setWindowedMode((int) GameConfig.VIRTUAL_WIDTH, (int) GameConfig.VIRTUAL_HEIGHT);
-            screenBtn.setText("[ 전체화면 전환 ]");
+            screenBtn.setText("전체화면 전환");
         } else {
             Gdx.graphics.setFullscreenMode(Gdx.graphics.getDisplayMode());
-            screenBtn.setText("[ 창모드 전환 ]");
+            screenBtn.setText("창모드 전환");
         }
     }
 
-    // 볼륨 동기화 및 전역 설정 업데이트
     private void syncVolume() {
         game.updateVolume(volumeStep / 10f);
         volStatusLabel.setText((volumeStep * 10) + "%");
     }
 
-    private void addHoverEffect(final Label label, final Color original, final Color hover) {
-        label.addListener(new InputListener() {
-            @Override
-            public void enter(InputEvent event, float x, float y, int pointer, Actor from) { label.setColor(hover); }
-            @Override
-            public void exit(InputEvent event, float x, float y, int pointer, Actor to) { label.setColor(original); }
-        });
-    }
-
+    // 마우스 오버 기능 : UI.addHoverEffect()를 호출하여 사용
     @Override
     public void render(float delta) {
         Gdx.gl.glClearColor(0.05f, 0.05f, 0.1f, 1);

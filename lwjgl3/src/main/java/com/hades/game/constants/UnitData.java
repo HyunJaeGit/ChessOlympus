@@ -18,7 +18,7 @@ public class UnitData {
     public static final Stat CLASS_SAINT = new Stat(60, 5, 5, 1, 1, "자동 치유", 200, "제우스일반병사");
 
     // --- [하데스 진영 영웅] ---
-    public static final Stat SOM_JUMEOK = new Stat(160, 45, 30, 1, 1, "불굴", 1000, "솜주먹");
+    public static final Stat SOM_JUMEOK = new Stat(160, 45, 30, 1, 1, "연옥의 불꽃", 1000, "솜주먹");
     public static final Stat KIMA = new Stat(110, 50, 15, 1, 1, "도약", 1000, "키마");
     public static final Stat CHAN_NA = new Stat(125, 35, 17, 1, 1, "그림자 습격", 1000, "챈나");
     public static final Stat THING_GYUL = new Stat(95, 20, 5, 1, 1, "신의 가호", 1000, "띵귤");

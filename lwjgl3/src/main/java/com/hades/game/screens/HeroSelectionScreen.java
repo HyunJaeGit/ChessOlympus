@@ -9,7 +9,6 @@ import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
-import com.badlogic.gdx.scenes.scene2d.InputListener;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.Touchable;
 import com.badlogic.gdx.scenes.scene2d.ui.Dialog;
@@ -19,14 +18,16 @@ import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.Window;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
+import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Scaling;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.hades.game.HadesGame;
-import com.hades.game.constants.GameConfig; // GameConfig 추가
+import com.hades.game.constants.GameConfig;
 import com.hades.game.constants.SkillData;
 import com.hades.game.constants.UnitData;
+import com.hades.game.view.UI;
 
-// 클래스 역할: 진영 선택 후 플레이할 영웅을 선택하는 화면입니다.
+// 영웅 선택 및 상세 스토리 팝업을 관리하는 클래스입니다.
 public class HeroSelectionScreen extends ScreenAdapter {
     private final HadesGame game;
     private final String selectedFaction;
@@ -40,21 +41,19 @@ public class HeroSelectionScreen extends ScreenAdapter {
         this.backgroundMusic = music;
         this.selectedFaction = faction;
 
-        // GameConfig의 가상 해상도를 적용하여 비율을 고정합니다.
         this.stage = new Stage(new FitViewport(GameConfig.VIRTUAL_WIDTH, GameConfig.VIRTUAL_HEIGHT));
 
         backgroundTexture = new Texture(Gdx.files.internal("images/background/main.png"));
         backgroundTexture.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
 
-        // 반투명 블랙 배경 드로어블 생성
         createDialogBackground();
-
         initUI();
     }
 
+    // 팝업 가독성을 위해 어두운 반투명 배경을 생성합니다.
     private void createDialogBackground() {
         Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
-        pixmap.setColor(new Color(0, 0, 0, 0.85f));
+        pixmap.setColor(new Color(0, 0, 0, 0.9f));
         pixmap.fill();
         dialogBackground = new TextureRegionDrawable(new TextureRegion(new Texture(pixmap)));
         pixmap.dispose();
@@ -65,11 +64,11 @@ public class HeroSelectionScreen extends ScreenAdapter {
         Gdx.input.setInputProcessor(stage);
     }
 
+    // 영웅 선택 리스트 UI를 초기화합니다.
     private void initUI() {
-        Table root = new Table();
-        root.setFillParent(true);
-        root.setTransform(true); // 글자 확대 효과 시 레이아웃 깨짐 방지
-        stage.addActor(root);
+        Table root = new Table();   // 테이블 생성
+        root.setFillParent(true);   // 테이블 크기를 부모(stage)의 크기에 맞춤
+        stage.addActor(root);       // 생성한 테이블을 그리고 감지
 
         Label title = new Label("CHOOSE YOUR HERO", new Label.LabelStyle(game.subtitleFont, Color.GOLD));
         root.add(title).padBottom(50).row();
@@ -82,26 +81,21 @@ public class HeroSelectionScreen extends ScreenAdapter {
             final String name = names[i];
             final UnitData.Stat stat = stats[i];
 
+            // 1. 라벨 생성
             final Label nameLabel = new Label(name, new Label.LabelStyle(game.mainFont, Color.LIGHT_GRAY));
             nameLabel.setTouchable(Touchable.disabled);
 
+            UI.addHoverEffect(game, nameLabel, Color.LIGHT_GRAY, Color.WHITE);
+
+            // 2. 라벨을 담을 테이블 생성
             Table rowTable = new Table();
             rowTable.setTouchable(Touchable.enabled);
-            rowTable.add(nameLabel).center().pad(10, 100, 10, 100);
+            rowTable.add(nameLabel).center().pad(10, 100, 10, 100); // 라벨 정렬(중앙, 여백)
 
-            rowTable.addListener(new InputListener() {
-                @Override
-                public void enter(InputEvent event, float x, float y, int pointer, com.badlogic.gdx.scenes.scene2d.Actor from) {
-                    nameLabel.setColor(Color.WHITE);
-                    nameLabel.setFontScale(1.1f);
-                }
-                @Override
-                public void exit(InputEvent event, float x, float y, int pointer, com.badlogic.gdx.scenes.scene2d.Actor to) {
-                    nameLabel.setColor(Color.LIGHT_GRAY);
-                    nameLabel.setFontScale(1.0f);
-                }
-            });
+            // 3. addHoverEffect 메서드 적용 (rowTable 호버시 nameLabel 색상 변경)
+            UI.addHoverEffect(game, rowTable, nameLabel, Color.LIGHT_GRAY, Color.WHITE);
 
+            // 4. 테이블 클릭 시 팝업을 띄우는 리스너 추가
             rowTable.addListener(new ClickListener() {
                 @Override
                 public void clicked(InputEvent event, float x, float y) {
@@ -114,46 +108,56 @@ public class HeroSelectionScreen extends ScreenAdapter {
         root.add(listTable).center();
     }
 
-    // 메서드 설명: SkillData 클래스와 연동하여 영웅의 상세 정보를 팝업창에 출력합니다.
+    // 좌측 이미지, 우측 스토리 구조의 상세 정보 팝업을 출력합니다.
     private void showGridPopup(final String name, final UnitData.Stat stat) {
         Window.WindowStyle windowStyle = new Window.WindowStyle(game.detailFont2, Color.WHITE, dialogBackground);
         final Dialog dialog = new Dialog("", windowStyle);
 
-        Table content = dialog.getContentTable();
-        content.pad(10);
+        Table mainTable = dialog.getContentTable();
+        mainTable.pad(30);
+        mainTable.debug(); // 시맨틱 구조 확인용 가이드 라인 (테스트용 코드)
 
-        // [테스트용 코드] 이 한 줄로 테이블의 모든 셀 경계선이 보입니다.
-        // content.setDebug(true);
-
-        // SkillData에서 해당 유닛의 스킬 정보 가져오기
         SkillData.Skill skill = SkillData.get(stat.skillName());
 
-        // 영웅 이미지 처리
+        // --- 좌측 섹션: 일러스트 ---
+        Table leftSection = new Table();
         String path = "images/character/" + name + ".png";
         if (Gdx.files.internal(path).exists()) {
-            Image heroImg = new Image(new Texture(Gdx.files.internal(path)));
+            Texture charTex = new Texture(Gdx.files.internal(path));
+            charTex.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+            Image heroImg = new Image(charTex);
             heroImg.setScaling(Scaling.fit);
-            content.add(heroImg).size(360, 480).padTop(10);
-        } else {
-            content.add().size(300, 400).padTop(10);
+            leftSection.add(heroImg).size(400, 550);
         }
+        mainTable.add(leftSection).padRight(40);
 
-        // 스탯 및 상세 설명 출력
-        Label infoLabel = new Label(
-            "[" + name + "]\n\n" +
-                "HP: " + stat.hp() + " | ATK: " + stat.atk() + "\n" +
-                "MOVE: " + stat.move() + " | RANGE: " + stat.range() + "\n\n" +
-                "SKILL: " + skill.name + "\n" +
-                "--------------------------\n" +
-                skill.description,
-            new Label.LabelStyle(game.detailFont2, Color.LIME)
-        );
-        infoLabel.setAlignment(com.badlogic.gdx.utils.Align.center);
-        infoLabel.setWrap(true);
-        content.add(infoLabel).center().width(360).pad(10).row();
+        // --- 우측 섹션: 정보 및 스토리 ---
+        Table rightSection = new Table();
+        rightSection.align(Align.top);
+        rightSection.pad(20);
 
+        Label nameLabel = new Label(name, new Label.LabelStyle(game.subtitleFont, Color.WHITE));
+        rightSection.add(nameLabel).padBottom(5).row();
+
+        Label subTitleLabel = new Label("연옥의 기사", new Label.LabelStyle(game.unitFont2, Color.LIME));
+        rightSection.add(subTitleLabel).padBottom(30).row();
+
+        Label skillTitle = new Label("고유 권능: " + skill.name, new Label.LabelStyle(game.unitFont2, Color.GOLD));
+        rightSection.add(skillTitle).padBottom(20).row();
+
+        String heroStory = "죽음의 신 하데스에게 충성하는 이 기사는 연옥의 불꽃을 다룹니다.\n" +
+            "그의 손에 쥐어진 검은 영혼을 베어 넘기며,\n" +
+            "적들에게 영원한 안식을 선사할 것입니다.";
+
+        Label storyLabel = new Label(heroStory, new Label.LabelStyle(game.detailFont, Color.LIGHT_GRAY));
+        storyLabel.setWrap(true);
+        storyLabel.setAlignment(Align.left);
+        rightSection.add(storyLabel).width(450).padBottom(40).row();
+
+        // --- 버튼 영역 ---
         Table btnTable = new Table();
-        Label startBtn = new Label("[ 전투 시작 ]", new Label.LabelStyle(game.detailFont2, Color.GOLD));
+
+        final Label startBtn = new Label("전투 시작", new Label.LabelStyle(game.detailFont, Color.GOLD));
         startBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
@@ -163,17 +167,22 @@ public class HeroSelectionScreen extends ScreenAdapter {
             }
         });
 
-        Label closeBtn = new Label("[ 닫기 ]", new Label.LabelStyle(game.detailFont2, Color.LIGHT_GRAY));
+        final Label closeBtn = new Label("닫기", new Label.LabelStyle(game.detailFont, Color.WHITE));
         closeBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
                 dialog.hide();
             }
         });
+        // UI.java 의 addHoverEffect 메서드로 UI 효과 적용
+        UI.addHoverEffect(game, startBtn, Color.GOLD, Color.WHITE);
+        UI.addHoverEffect(game, closeBtn, Color.WHITE, Color.LIGHT_GRAY);
 
-        btnTable.add(startBtn).padRight(50);
+        btnTable.add(startBtn).padRight(40);
         btnTable.add(closeBtn);
-        content.add(btnTable).colspan(2).center().padTop(20);
+        rightSection.add(btnTable).expandY().bottom().right();
+
+        mainTable.add(rightSection).expandY().fillY();
 
         dialog.show(stage);
     }
@@ -183,11 +192,8 @@ public class HeroSelectionScreen extends ScreenAdapter {
         Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        // SpriteBatch가 가상 해상도 카메라 시점을 따르도록 투영 행렬을 설정합니다.
         game.batch.setProjectionMatrix(stage.getViewport().getCamera().combined);
-
         game.batch.begin();
-        // 배경을 가상 해상도 크기로 고정해서 그립니다.
         game.batch.draw(backgroundTexture, 0, 0, GameConfig.VIRTUAL_WIDTH, GameConfig.VIRTUAL_HEIGHT);
         game.batch.end();
 

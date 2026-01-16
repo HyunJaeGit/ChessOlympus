@@ -21,11 +21,11 @@ public class SkillData {
     private static final Map<String, Skill> skills = new HashMap<>();
 
     static {
-        // 하데스 진영 스킬
+        // 하데스 진영 스킬 예시
         addSkill("지옥의 숨결", "전방의 모든 적에게 강력한 화염 피해를 입힙니다.", 1.5f);
         addSkill("삼두견의 포효", "주변 적들을 공포에 빠뜨려 3초간 기절시킵니다.", 3.0f);
 
-        // 제우스 진영 스킬
+        // 제우스 진영 스킬 예시
         addSkill("심판의 번개", "가장 강력한 적에게 거대한 낙뢰를 떨어뜨립니다.", 2.5f);
         addSkill("올림푸스의 가호", "자신과 주변 아군의 방어력을 일시적으로 높입니다.", 1.2f);
     }

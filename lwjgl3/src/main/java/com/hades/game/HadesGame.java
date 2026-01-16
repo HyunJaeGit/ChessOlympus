@@ -19,12 +19,12 @@ public class HadesGame extends Game {
     public BitmapFont font, mainFont, detailFont, titleFont, subtitleFont, unitFont, detailFont2, unitFont2, unitFont3, cardFont;
     public Sound clickSound;
 
-    // [추가] 배경음악 관리용 객체
+    // 배경음악 관리용 객체
     public Music menuBgm;   // 메뉴 화면 음악 (bgm.mp3)
     public Music battleBgm; // 전투 화면 음악 (bgm-battle.mp3)
 
     // 전역 볼륨 설정 (0.0 ~ 1.0)
-    public float globalVolume = 0.1f; // 초기 음량 10% (원하는 대로 조절)
+    public float globalVolume = 0.1f; // 초기 음량 10%
 
     private void loadBackgroundMusic() {
         if (Gdx.files.internal("music/bgm.mp3").exists()) {
@@ -66,13 +66,16 @@ public class HadesGame extends Game {
         font = mainFont;
 
         // 효과음 로드
-        String soundPath = "music/click.wav";
+        String soundPath = "music/click.ogg";
         if (Gdx.files.internal(soundPath).exists()) {
             try {
                 clickSound = Gdx.audio.newSound(Gdx.files.internal(soundPath));
+                Gdx.app.log("HadesGame", "Sound loaded: " + soundPath);
             } catch (Exception e) {
-                Gdx.app.error("HadesGame", "Sound 로딩 실패: " + e.getMessage());
+                Gdx.app.error("HadesGame", "Critical: Failed to load sound - " + e.getMessage());
             }
+        } else {
+            Gdx.app.error("HadesGame", "Critical: Sound file NOT FOUND at " + soundPath);
         }
 
         // 배경음악 로드 및 설정
@@ -82,9 +85,12 @@ public class HadesGame extends Game {
         this.setScreen(new MenuScreen(this));
     }
 
+    // 효과음 재생 시 전역 설정된 볼륨값 반영
     public void playClick(float pitch) {
         if (clickSound != null) {
-            long id = clickSound.play(1.0f, pitch, 0);
+            Gdx.app.log("SOUND_VOL", "Playing with volume: " + globalVolume);
+            // globalVolume을 사용하여 전역 볼륨 설정이 효과음에도 적용
+            long id = clickSound.play(globalVolume, pitch, 0);
             if (id == -1) {
                 Gdx.app.error("SoundSystem", "재생 슬롯 부족");
             }
@@ -98,12 +104,15 @@ public class HadesGame extends Game {
     @Override
     public void dispose() {
         // 폰트 및 그래픽 자원 해제
-        if (batch != null) batch.dispose();
-        if (mainFont != null) mainFont.dispose();
-        if (detailFont != null) detailFont.dispose();
-        if (unitFont != null) unitFont.dispose();
         if (titleFont != null) titleFont.dispose();
         if (subtitleFont != null) subtitleFont.dispose();
+        if (mainFont != null) mainFont.dispose();
+        if (detailFont != null) detailFont.dispose();
+        if (detailFont2 != null) detailFont2.dispose();
+        if (unitFont != null) unitFont.dispose();
+        if (unitFont2 != null) unitFont2.dispose();
+        if (unitFont3 != null) unitFont3.dispose();
+        if (cardFont != null) cardFont.dispose();
 
         // 사운드 및 음악 자원 해제
         if (clickSound != null) clickSound.dispose();

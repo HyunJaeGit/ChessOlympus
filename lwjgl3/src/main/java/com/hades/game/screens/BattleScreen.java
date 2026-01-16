@@ -26,7 +26,9 @@ import com.hades.game.logic.TurnManager;
 import com.hades.game.view.GameUI;
 import com.hades.game.view.MapRenderer;
 import com.hades.game.view.UnitRenderer;
+import com.hades.game.view.UI;
 
+// 실제 턴제 전투가 이루어지는 메인 게임 화면 클래스입니다.
 public class BattleScreen extends ScreenAdapter {
     private final HadesGame game;
     private ShapeRenderer shape;
@@ -75,7 +77,7 @@ public class BattleScreen extends ScreenAdapter {
         loadResources();
         init();
 
-        // // 스테이지 시작 로그 추가
+        // 전투 시작 로그 출력
         gameUI.addLog("STAGE " + stageLevel + " 전투 시작!");
     }
 
@@ -105,6 +107,7 @@ public class BattleScreen extends ScreenAdapter {
         setupBattleUnits();
     }
 
+    // 플레이어와 AI의 유닛들을 전장에 배치합니다.
     private void setupBattleUnits() {
         units.clear();
         // 플레이어 진영 (HADES)
@@ -139,20 +142,20 @@ public class BattleScreen extends ScreenAdapter {
         game.batch.setProjectionMatrix(stage.getViewport().getCamera().combined);
         shape.setProjectionMatrix(stage.getViewport().getCamera().combined);
 
-        // 1. 배경
+        // 1. 배경 출력
         game.batch.begin();
         game.batch.draw(battleBg, 0, 0, GameConfig.VIRTUAL_WIDTH, GameConfig.VIRTUAL_HEIGHT);
         game.batch.end();
 
-        // 2. 맵 타일
+        // 2. 맵 타일 렌더링
         mapRenderer.drawTiles(hoveredGrid, selectedUnit, units);
 
-        // 3. 사거리 표시
+        // 3. 사거리 하이라이트 표시
         if (!gameOver && selectedUnit != null) {
             mapRenderer.drawRangeOverlays(selectedUnit);
         }
 
-        // 4. 유닛 및 UI
+        // 4. 유닛 렌더링 (그림자 -> 본체 순서)
         game.batch.begin();
         for (int i = 0; i < units.size; i++) {
             Unit u = units.get(i);
@@ -163,11 +166,11 @@ public class BattleScreen extends ScreenAdapter {
             if (u.isAlive()) unitRenderer.renderBody(u, selectedUnit);
         }
 
-        // // UI 렌더링 (로그, 스테이지, 유닛 상세정보 포함)
+        // 하단 UI 렌더링
         gameUI.render(stageLevel, turnManager.getCurrentTurn(), playerTeam, menuHitbox, selectedUnit);
         game.batch.end();
 
-        // 5. 게임 종료 오버레이
+        // 5. 게임 종료 시 결과 메뉴 출력
         if (gameOver) {
             drawGameOverOverlay();
             stage.act();
@@ -197,6 +200,7 @@ public class BattleScreen extends ScreenAdapter {
         }
     }
 
+    // 마우스 입력을 통한 유닛 선택 및 이동을 처리합니다.
     private void handleInput() {
         if (gameOver) return;
         Vector2 touchPos = new Vector2(Gdx.input.getX(), Gdx.input.getY());
@@ -204,8 +208,9 @@ public class BattleScreen extends ScreenAdapter {
         float mx = touchPos.x;
         float my = touchPos.y;
 
+        // 전체화면 토글 버튼 클릭 확인
         if (Gdx.input.justTouched() && menuHitbox.contains(mx, my)) {
-            game.playClick(1.0f);
+            game.playClick();
             toggleFullscreen();
             return;
         }
@@ -217,6 +222,7 @@ public class BattleScreen extends ScreenAdapter {
             if (selectedUnit != null) {
                 int tx = (int) hoveredGrid.x;
                 int ty = (int) hoveredGrid.y;
+                // 선택된 유닛 이동 처리
                 if (tx >= 0 && ty >= 0 && selectedUnit.team.equals(playerTeam) && BoardManager.canMoveTo(selectedUnit, tx, ty, units)) {
                     selectedUnit.setPosition(tx, ty);
                     processAutoAttack(playerTeam);
@@ -226,10 +232,12 @@ public class BattleScreen extends ScreenAdapter {
                     return;
                 }
             }
+            // 유닛 선택 처리
             Unit clickedUnit = null;
             for (Unit u : units) {
                 if (u.isAlive() && unitRenderer.isMouseInsideHitbox(u, mx, my)) {
                     clickedUnit = u;
+                    game.playClick();
                     break;
                 }
             }
@@ -237,6 +245,7 @@ public class BattleScreen extends ScreenAdapter {
         }
     }
 
+    // 이동 후 사거리 내 적이 있으면 자동으로 공격합니다.
     public void processAutoAttack(String team) {
         for (int i = 0; i < units.size; i++) {
             Unit attacker = units.get(i);
@@ -255,6 +264,7 @@ public class BattleScreen extends ScreenAdapter {
         processAutoHeal(team);
     }
 
+    // 성녀 클래스의 주변 아군 자동 치료 로직입니다.
     private void processAutoHeal(String team) {
         for (int i = 0; i < units.size; i++) {
             Unit u = units.get(i);
@@ -265,7 +275,6 @@ public class BattleScreen extends ScreenAdapter {
                         int dist = Math.abs(u.gridX - ally.gridX) + Math.abs(u.gridY - ally.gridY);
                         if (dist == 1 && ally.currentHp < ally.stat.hp()) {
                             ally.currentHp = Math.min(ally.stat.hp(), ally.currentHp + 15);
-                            // // 치료 로그 추가
                             gameUI.addLog(u.name + "가 " + ally.name + "를 치료함(+15)");
                         }
                     }
@@ -274,6 +283,7 @@ public class BattleScreen extends ScreenAdapter {
         }
     }
 
+    // 공격과 반격 로직을 처리합니다.
     public void performAttack(Unit attacker, Unit target) {
         if (attacker == null || target == null || !target.isAlive() || !attacker.isAlive()) return;
 
@@ -281,21 +291,19 @@ public class BattleScreen extends ScreenAdapter {
         int damage = attacker.getPower(isAttackerTurn);
         target.currentHp -= damage;
 
-        // // 공격 로그 출력
         gameUI.addLog(attacker.name + " -> " + target.name + " [" + damage + " 데미지]");
 
         if (target.currentHp <= 0) {
             target.currentHp = 0;
-            // // 처치 로그 출력
             gameUI.addLog(target.name + " 처치됨!");
             handleDeath(target);
             return;
         }
 
+        // 반격 가능한 거리라면 반격 수행
         if (target.canReach(attacker)) {
             int counterDamage = target.getPower(turnManager.isMyTurn(target.team));
             attacker.currentHp -= counterDamage;
-            // // 반격 로그 출력
             gameUI.addLog(target.name + "의 반격! [" + counterDamage + " 데미지]");
 
             if (attacker.currentHp <= 0) {
@@ -306,6 +314,7 @@ public class BattleScreen extends ScreenAdapter {
         }
     }
 
+    // 유닛 사망 처리 및 승리/패배 조건을 체크합니다.
     private void handleDeath(Unit target) {
         target.status = Unit.DEAD;
         boolean isEnemyBoss = target.team.equals(aiTeam) && target.unitClass == Unit.UnitClass.HERO;
@@ -322,6 +331,7 @@ public class BattleScreen extends ScreenAdapter {
         }
     }
 
+    // 게임 종료 시 결과 팝업 메뉴를 생성합니다.
     private void showGameOverMenu(boolean isVictory) {
         Table table = new Table();
         table.setFillParent(true);
@@ -331,49 +341,59 @@ public class BattleScreen extends ScreenAdapter {
         Label titleLabel = new Label(resultText, new Label.LabelStyle(game.titleFont, isVictory ? Color.GOLD : Color.FIREBRICK));
         table.add(titleLabel).padBottom(60).row();
 
+        // 승리 시 다음 스테이지 버튼
         if (isVictory && stageLevel < 7) {
             Label nextBtn = new Label("[ NEXT STAGE ]", new Label.LabelStyle(game.mainFont, Color.valueOf("4FB9AF")));
             nextBtn.addListener(new ClickListener() {
                 @Override
                 public void clicked(InputEvent event, float x, float y) {
-                    game.playClick(1.0f);
                     game.setScreen(new BattleScreen(game, playerTeam, heroName, heroStat, stageLevel + 1));
                 }
             });
+            UI.addHoverEffect(game, nextBtn, Color.valueOf("4FB9AF"), Color.WHITE);
             table.add(nextBtn).padBottom(20).row();
-        } else if (!isVictory) {
+        }
+        // 패배 시 재시도 버튼
+        else if (!isVictory) {
             Label retryBtn = new Label("[ RE-TRY ]", new Label.LabelStyle(game.mainFont, Color.WHITE));
             retryBtn.addListener(new ClickListener() {
                 @Override
                 public void clicked(InputEvent event, float x, float y) {
-                    game.playClick(1.0f);
                     game.setScreen(new BattleScreen(game, playerTeam, heroName, heroStat, stageLevel));
                 }
             });
+            UI.addHoverEffect(game, retryBtn, Color.WHITE, Color.GOLD);
             table.add(retryBtn).padBottom(20).row();
         }
 
+        // 메뉴 화면으로 돌아가기 버튼
         Label homeBtn = new Label("[ BACK TO MENU ]", new Label.LabelStyle(game.mainFont, Color.LIGHT_GRAY));
         homeBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
-                game.playClick(1.0f);
                 game.setScreen(new MenuScreen(game));
             }
         });
+        UI.addHoverEffect(game, homeBtn, Color.LIGHT_GRAY, Color.WHITE);
         table.add(homeBtn);
+
         stage.addActor(table);
+        Gdx.input.setInputProcessor(stage);
     }
 
+    // 사망한 유닛을 리스트에서 제거하고 선택 상태를 해제합니다.
     private void cleanupDeadUnits() {
+        // 리스트 삭제 시 인덱스 꼬임을 방지하기 위해 역순으로 반복합니다.
         for (int i = units.size - 1; i >= 0; i--) {
             if (units.get(i).status == Unit.DEAD) {
+                // 삭제되는 유닛이 현재 선택된 유닛이라면 선택 해제
                 if (selectedUnit == units.get(i)) selectedUnit = null;
                 units.removeIndex(i);
             }
         }
     }
 
+    // 전체화면과 창 모드를 서로 전환합니다.
     private void toggleFullscreen() {
         if (Gdx.graphics.isFullscreen()) {
             Gdx.graphics.setWindowedMode((int) GameConfig.VIRTUAL_WIDTH, (int) GameConfig.VIRTUAL_HEIGHT);
@@ -382,19 +402,22 @@ public class BattleScreen extends ScreenAdapter {
         }
     }
 
+    // 게임 종료 시 화면을 어둡게 덮는 반투명 오버레이를 그립니다.
     private void drawGameOverOverlay() {
-        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glEnable(GL20.GL_BLEND); // 투명도 조절을 위해 블렌딩 활성화
         shape.begin(ShapeRenderer.ShapeType.Filled);
-        shape.setColor(0, 0, 0, 0.7f);
+        shape.setColor(0, 0, 0, 0.7f); // 70% 농도의 검은색
         shape.rect(0, 0, GameConfig.VIRTUAL_WIDTH, GameConfig.VIRTUAL_HEIGHT);
         shape.end();
     }
 
+    // 창 크기가 변경될 때 뷰포트를 업데이트하여 비율을 유지합니다.
     @Override
     public void resize(int width, int height) {
         stage.getViewport().update(width, height, true);
     }
 
+    // 메모리 누수 방지를 위해 사용된 리소스들을 해제합니다.
     @Override
     public void dispose() {
         if (shape != null) shape.dispose();
