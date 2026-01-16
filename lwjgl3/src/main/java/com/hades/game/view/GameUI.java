@@ -56,9 +56,9 @@ public class GameUI implements Disposable {
         game.unitFont2.draw(game.batch, currentTurn.equals(playerTeam) ? "YOUR TURN" : "ENEMY TURN", 40, GameConfig.VIRTUAL_HEIGHT - 110);
 
         // 3. 우측 상단 메뉴 박스
-        float menuHitboxHeight = menuHitbox.height - 10; // 메뉴 히트박스를 원래 높이보다 20픽셀 줄임
-        float menuHitboxwidth = menuHitbox.width - 10; // 메뉴 히트박스를 원래 높이보다 20픽셀 줄임
-        float adjustedY = menuHitbox.y + 10; // 위로 10픽셀 이동 (취향에 따라 조정)
+        float menuHitboxHeight = menuHitbox.height - 18;
+        float menuHitboxwidth = menuHitbox.width - 10;
+        float adjustedY = menuHitbox.y + 10;
 
         game.batch.draw(timerBoxBg, menuHitbox.x, adjustedY, menuHitboxwidth, menuHitboxHeight);
         String screenModeText = Gdx.graphics.isFullscreen() ? "WINDOW" : "FULLSCREEN";
@@ -69,7 +69,7 @@ public class GameUI implements Disposable {
         // 창의 위치와 크기
         float logBgX = 400; // 로그창 배경의 시작 X
         float logBgY = 15;  // 로그창 배경의 시작 Y
-        float logWidth = 600; // 로그창의 가로 길이 (고정)
+        float logWidth = 800; // 로그창의 가로 길이 (고정)
         float logHeight = 200; // 로그창의 세로 길이 (고정)
 
         // 배경 그리기 (이제 logX를 바꿔도 크기가 변하지 않습니다)
@@ -138,22 +138,29 @@ public class GameUI implements Disposable {
         debugShape.end();
     }
     // 유닛 카드 상세정보
+// 유닛 카드 상세정보 렌더링
     private void renderUnitDetails(Unit unit) {
         float uiX = 10;
         float uiY = 20;
+
+        // 배경 그리기
         game.batch.draw(unitInfoBg, uiX, uiY, 300, 420);
 
-        // 유닛 카드 상세정보(이름)
+        // 유닛 일러스트 그리기 (Unit.java에서 로드한 portrait 사용)
+        if (unit.portrait != null) {
+            // 카드 프레임 중앙 위치에 맞춰 출력
+            game.batch.draw(unit.portrait, uiX + 25, uiY + 130, 250, 215);
+        }
+
+        // 유닛 이름 출력
         game.unitFont3.setColor(unit.unitClass == Unit.UnitClass.HERO ? Color.GOLD : Color.WHITE);
         game.unitFont3.draw(game.batch, unit.name, uiX + 60, uiY + 355);
 
-        // 스탯 나열 (Y값을 20씩 깎으면서 줄바꿈 효과)
+        // 스탯 정보 출력
         game.cardFont.setColor(Color.WHITE);
         game.cardFont.draw(game.batch, "HP : " + unit.currentHp + " / " + unit.stat.hp(), uiX + 45, uiY + 105);
-        // 2. ATK(공격력) / CRT(반격력) 표시
         game.cardFont.draw(game.batch, "ATK: " + unit.stat.atk() + " / CRT: " + unit.stat.counterAtk(), uiX + 45, uiY + 85);
         game.cardFont.draw(game.batch, "RNG: " + unit.stat.range() + " 칸", uiX + 45, uiY + 65);
-
     }
 
     @Override
