@@ -19,8 +19,8 @@ import com.hades.game.constants.GameConfig;
 public class BaseCutsceneScreen extends ScreenAdapter {
     private final HadesGame game;
     private final Stage stage;
-    private final Screen nextScreen; // 컷씬 종료 후 이동할 화면
-    private final CutsceneManager.CutsceneData data;
+    private final Screen nextScreen;
+    private final CutsceneData data; // record 타입 참조
 
     private Image displayImage;
     private Label storyLabel;
@@ -31,18 +31,18 @@ public class BaseCutsceneScreen extends ScreenAdapter {
     private String currentDisplayText = "";
     private int wordIndex = 0;
     private float timeCount = 0;
-    private final float wordSpeed = 0.25f; // 단어 속도 조정
+    private final float wordSpeed = 0.15f; // 타이핑 속도를 조금 더 빠르게 조정
 
-    public BaseCutsceneScreen(HadesGame game, CutsceneManager.CutsceneData data, Screen nextScreen) {
+    public BaseCutsceneScreen(HadesGame game, CutsceneData data, Screen nextScreen) {
         this.game = game;
         this.data = data;
         this.nextScreen = nextScreen;
         this.stage = new Stage(new FitViewport(GameConfig.VIRTUAL_WIDTH, GameConfig.VIRTUAL_HEIGHT));
 
-        // 전달받은 경로로 텍스처 로드
-        this.textures = new Texture[data.imagePaths.length];
-        for (int i = 0; i < data.imagePaths.length; i++) {
-            this.textures[i] = new Texture(Gdx.files.internal(data.imagePaths[i]));
+        // record의 imagePaths() 메서드로 접근
+        this.textures = new Texture[data.imagePaths().length];
+        for (int i = 0; i < data.imagePaths().length; i++) {
+            this.textures[i] = new Texture(Gdx.files.internal(data.imagePaths()[i]));
         }
 
         initUI();
@@ -52,7 +52,8 @@ public class BaseCutsceneScreen extends ScreenAdapter {
     private void initUI() {
         displayImage = new Image(textures[0]);
         displayImage.setFillParent(true);
-        displayImage.setColor(1, 1, 1, 0.6f);
+        // 배경 이미지를 약간 어둡게 하여 글자가 잘 보이게 합니다.
+        displayImage.setColor(0.5f, 0.5f, 0.5f, 1f);
         stage.addActor(displayImage);
 
         Table root = new Table();
@@ -68,9 +69,14 @@ public class BaseCutsceneScreen extends ScreenAdapter {
     }
 
     private void updateScene() {
-        if (currentSceneIndex < textures.length) {
-            displayImage.setDrawable(new TextureRegionDrawable(textures[currentSceneIndex]));
-            currentWords = data.texts[currentSceneIndex].split(" ");
+        // record의 scripts() 메서드로 접근
+        if (currentSceneIndex < data.scripts().length) {
+            // 이미지가 여러 장일 경우에 대비한 로직 (현재는 1장)
+            if (currentSceneIndex < textures.length) {
+                displayImage.setDrawable(new TextureRegionDrawable(textures[currentSceneIndex]));
+            }
+
+            currentWords = data.scripts()[currentSceneIndex].split(" ");
             currentDisplayText = "";
             wordIndex = 0;
             timeCount = 0;
@@ -83,7 +89,7 @@ public class BaseCutsceneScreen extends ScreenAdapter {
         Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        // 단어 타이핑 로직
+        // 타이핑 로직
         if (currentWords != null && wordIndex < currentWords.length) {
             timeCount += delta;
             if (timeCount >= wordSpeed) {
@@ -96,12 +102,14 @@ public class BaseCutsceneScreen extends ScreenAdapter {
 
         if (Gdx.input.justTouched()) {
             game.playClick();
+            // 아직 타이핑 중이라면 전체 문장을 바로 보여줌
             if (currentWords != null && wordIndex < currentWords.length) {
                 wordIndex = currentWords.length;
-                storyLabel.setText(data.texts[currentSceneIndex]);
+                storyLabel.setText(data.scripts()[currentSceneIndex]);
             } else {
+                // 문장이 끝났다면 다음 장면으로
                 currentSceneIndex++;
-                if (currentSceneIndex < textures.length) {
+                if (currentSceneIndex < data.scripts().length) {
                     updateScene();
                 } else {
                     // 모든 장면 종료 시 다음 화면으로 전환
@@ -119,6 +127,11 @@ public class BaseCutsceneScreen extends ScreenAdapter {
 
     @Override
     public void hide() { Gdx.input.setInputProcessor(null); }
+
+    @Override
+    public void resize(int width, int height) {
+        stage.getViewport().update(width, height, true);
+    }
 
     @Override
     public void dispose() {

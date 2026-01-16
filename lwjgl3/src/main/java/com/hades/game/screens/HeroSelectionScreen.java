@@ -23,6 +23,7 @@ import com.badlogic.gdx.utils.Scaling;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.hades.game.HadesGame;
 import com.hades.game.constants.GameConfig;
+import com.hades.game.constants.HeroStoryManager;
 import com.hades.game.constants.SkillData;
 import com.hades.game.constants.UnitData;
 import com.hades.game.view.UI;
@@ -115,9 +116,10 @@ public class HeroSelectionScreen extends ScreenAdapter {
 
         Table mainTable = dialog.getContentTable();
         mainTable.pad(30);
-        mainTable.debug(); // 시맨틱 구조 확인용 가이드 라인 (테스트용 코드)
 
         SkillData.Skill skill = SkillData.get(stat.skillName());
+        // HeroStoryManager에서 해당 유닛의 칭호와 설명 데이터를 가져옵니다.
+        HeroStoryManager.HeroStory story = HeroStoryManager.get(name);
 
         // --- 좌측 섹션: 일러스트 ---
         Table leftSection = new Table();
@@ -139,17 +141,21 @@ public class HeroSelectionScreen extends ScreenAdapter {
         Label nameLabel = new Label(name, new Label.LabelStyle(game.subtitleFont, Color.WHITE));
         rightSection.add(nameLabel).padBottom(5).row();
 
-        Label subTitleLabel = new Label("연옥의 기사", new Label.LabelStyle(game.unitFont2, Color.LIME));
+        // 매니저에서 가져온 칭호(title) 적용
+        Label subTitleLabel = new Label(story.title(), new Label.LabelStyle(game.unitFont2, Color.LIME));
         rightSection.add(subTitleLabel).padBottom(30).row();
 
-        Label skillTitle = new Label("고유 권능: " + skill.name, new Label.LabelStyle(game.unitFont2, Color.GOLD));
+        // 스테이지 1에서는 스킬이 봉인된 것으로 표시 (기획 반영)
+        String skillText = "고유 권능: (봉인됨)";
+        Color skillColor = Color.GRAY;
+
+        // stageLevel 변수가 이 클래스에 선언되어 있다고 가정하거나, 1단계면 무조건 봉인
+        // 만약 stageLevel > 1 이라면 skill.name을 보여주는 로직으로 확장 가능합니다.
+        Label skillTitle = new Label(skillText, new Label.LabelStyle(game.unitFont2, skillColor));
         rightSection.add(skillTitle).padBottom(20).row();
 
-        String heroStory = "죽음의 신 하데스에게 충성하는 이 기사는 연옥의 불꽃을 다룹니다.\n" +
-            "그의 손에 쥐어진 검은 영혼을 베어 넘기며,\n" +
-            "적들에게 영원한 안식을 선사할 것입니다.";
-
-        Label storyLabel = new Label(heroStory, new Label.LabelStyle(game.detailFont, Color.LIGHT_GRAY));
+        // 매니저에서 가져온 상세 스토리(description) 적용
+        Label storyLabel = new Label(story.description(), new Label.LabelStyle(game.detailFont, Color.LIGHT_GRAY));
         storyLabel.setWrap(true);
         storyLabel.setAlignment(Align.left);
         rightSection.add(storyLabel).width(450).padBottom(40).row();
@@ -162,7 +168,12 @@ public class HeroSelectionScreen extends ScreenAdapter {
             @Override
             public void clicked(InputEvent event, float x, float y) {
                 if (backgroundMusic != null) backgroundMusic.stop();
-                game.setScreen(new BattleScreen(game, selectedFaction, name, stat, 1));
+                // 컷씬 화면으로 먼저 전환 후 전투로 이동 (기존 로직 유지하며 목적지 설정)
+                game.setScreen(new com.hades.game.screens.cutscene.BaseCutsceneScreen(
+                    game,
+                    com.hades.game.screens.cutscene.CutsceneManager.getStage1Data(),
+                    new BattleScreen(game, selectedFaction, name, stat, 1)
+                ));
                 dialog.hide();
             }
         });
@@ -174,7 +185,7 @@ public class HeroSelectionScreen extends ScreenAdapter {
                 dialog.hide();
             }
         });
-        // UI.java 의 addHoverEffect 메서드로 UI 효과 적용
+
         UI.addHoverEffect(game, startBtn, Color.GOLD, Color.WHITE);
         UI.addHoverEffect(game, closeBtn, Color.WHITE, Color.LIGHT_GRAY);
 
