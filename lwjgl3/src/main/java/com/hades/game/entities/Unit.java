@@ -3,11 +3,13 @@ package com.hades.game.entities;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.math.MathUtils; // 추가
 import com.badlogic.gdx.math.Vector2;
-import com.badlogic.gdx.utils.Array; // 추가
+import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Disposable;
 import com.hades.game.constants.UnitData;
 
+// Chess Olympus: HADES vs ZEUS
 // 유닛의 데이터와 시각적 애니메이션 상태를 관리하는 클래스입니다.
 public class Unit implements Disposable {
     public enum UnitClass {
@@ -58,6 +60,10 @@ public class Unit implements Disposable {
     private Vector2 attackDir = new Vector2(0, 0);
     private final float ATTACK_DURATION = 0.2f;
 
+    // [추가] 하이라이트용 시각적 투명도 변수
+    public float visualAlpha = 1.0f; // 실제 렌더링에 반영될 현재 투명도
+    public float targetAlpha = 1.0f; // 목표로 하는 투명도 (선택 유무에 따라 0.4f 또는 1.0f)
+
     // [추가] 데미지 텍스트 리스트
     public Array<DamageText> damageTexts = new Array<>();
     // ----------------------
@@ -90,6 +96,7 @@ public class Unit implements Disposable {
         playHitAnim();
     }
 
+    // 매 프레임 유닛의 상태와 애니메이션을 업데이트합니다.
     public void update(float delta) {
         // 1. 피격 깜빡임 타이머
         if (hitTimer > 0) hitTimer -= delta;
@@ -105,7 +112,7 @@ public class Unit implements Disposable {
             animOffset.set(0, 0);
         }
 
-        // 3. iterator에러 -> 인덱스 for문 사용
+        // 3. 데미지 텍스트 업데이트 (인덱스 기반 루프로 에러 방지)
         for (int i = 0; i < damageTexts.size; i++) {
             DamageText dt = damageTexts.get(i);
             dt.update(delta);
@@ -114,8 +121,13 @@ public class Unit implements Disposable {
                 i--; // 인덱스 조정
             }
         }
+
+        // 4. [추가] 하이라이트 투명도 보간 (Lerp)
+        // visualAlpha가 targetAlpha를 향해 매 프레임 부드럽게 변하도록 합니다.
+        visualAlpha = MathUtils.lerp(visualAlpha, targetAlpha, 0.15f);
     }
 
+    // 공격 시 타겟 방향으로 살짝 점프하는 연출을 시작합니다.
     public void playAttackAnim(int targetX, int targetY) {
         attackAnimTimer = ATTACK_DURATION;
         float dx = targetX - gridX;
@@ -123,10 +135,12 @@ public class Unit implements Disposable {
         attackDir.set(dx * 1.5f, -dy).nor();
     }
 
+    // 피격 시 짧은 시간 동안 유닛을 빨간색으로 표시하도록 설정합니다.
     public void playHitAnim() {
         hitTimer = 0.15f;
     }
 
+    // 리소스를 안전하게 불러오며 파일이 없을 경우 기본 이미지를 반환합니다.
     private Texture loadSafeTexture(String path) {
         try {
             if (Gdx.files.internal(path).exists()) {
@@ -141,20 +155,24 @@ public class Unit implements Disposable {
         }
     }
 
+    // 공격자의 턴 여부에 따라 공격력 혹은 반격력을 반환합니다.
     public int getPower(boolean isMyTurn) {
         return isMyTurn ? stat.atk() : stat.counterAtk();
     }
 
+    // 대상 유닛이 자신의 사거리 안에 있는지 체크합니다.
     public boolean canReach(Unit target) {
         if (target == null) return false;
         int dist = Math.abs(this.gridX - target.gridX) + Math.abs(this.gridY - target.gridY);
         return dist <= this.stat.range();
     }
 
+    // 유닛이 현재 전장에서 살아있는 상태인지 확인합니다.
     public boolean isAlive() {
         return status == ALIVE && currentHp > 0;
     }
 
+    // 유닛의 그리드 좌표를 설정합니다.
     public void setPosition(int x, int y) {
         this.gridX = x;
         this.gridY = y;

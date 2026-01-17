@@ -12,6 +12,7 @@ import com.badlogic.gdx.math.Vector2;
 import com.hades.game.entities.Unit;
 import com.hades.game.logic.IsoUtils;
 
+// Chess Olympus: HADES vs ZEUS
 // 게임 화면에 배치된 유닛의 이미지, 그림자, 체력바 등을 실제로 그려주는 클래스입니다.
 public class UnitRenderer {
 
@@ -32,9 +33,7 @@ public class UnitRenderer {
         this.layout = new GlyphLayout();
     }
 
-    /**
-     * 유닛의 발밑 그림자와 선택 링을 렌더링합니다.
-     */
+    // 유닛의 발밑 그림자와 선택 링을 렌더링합니다.
     public void renderShadow(Unit unit, Unit selectedUnit) {
         Vector2 screenPos = IsoUtils.gridToScreen(unit.gridX, unit.gridY);
         boolean isSelected = (unit == selectedUnit);
@@ -46,9 +45,7 @@ public class UnitRenderer {
         }
     }
 
-    /**
-     * 유닛의 본체, 애니메이션, 상태 UI, 데미지 팝업을 순서대로 렌더링합니다.
-     */
+    // 유닛의 본체, 애니메이션, 상태 UI, 데미지 팝업을 순서대로 렌더링합니다.
     public void renderBody(Unit unit, Unit selectedUnit) {
         Vector2 screenPos = IsoUtils.gridToScreen(unit.gridX, unit.gridY);
 
@@ -59,44 +56,49 @@ public class UnitRenderer {
         Texture currentTexture = unit.fieldTexture;
         boolean isSelected = (unit == selectedUnit);
 
-        // 피격 시 빨간색 깜빡임 연출 적용
+        // --- [하이라이트 대상 판단 및 목표 투명도 설정] ---
+        if (selectedUnit == null) {
+            unit.targetAlpha = 1.0f; // 선택된 유닛이 없으면 모두 선명하게
+        } else {
+            // 선택된 유닛이 있을 때, 같은 팀이면서 본인이 아니면 투명하게(0.4f) 만듭니다.
+            if (unit.team.equals(selectedUnit.team) && unit != selectedUnit) {
+                unit.targetAlpha = 0.4f;
+            } else {
+                unit.targetAlpha = 1.0f; // 본인이거나 적군은 선명하게 유지
+            }
+        }
+
+        // 피격 시 빨간색 깜빡임 연출 적용, 그 외에는 유닛의 현재 visualAlpha 적용
         if (unit.hitTimer > 0) {
             batch.setColor(Color.RED);
         } else {
-            batch.setColor(Color.WHITE);
+            // visualAlpha를 사용하여 부드러운 페이드 효과 표현
+            batch.setColor(1, 1, 1, unit.visualAlpha);
         }
 
         drawUnitBody(currentTexture, drawX, drawY);
         batch.setColor(Color.WHITE); // 색상 원복
 
-        // 체력바와 유닛 이름 표시
-        drawStatusUI(unit, drawX, drawY, isSelected);
+        // 체력바와 유닛 이름 표시 (유닛의 투명도 값을 전달)
+        drawStatusUI(unit, drawX, drawY, isSelected, unit.visualAlpha);
 
         // 데미지 팝업 텍스트 표시
         drawDamagePopups(unit, screenPos);
     }
 
-    /**
-     * [핵심 수정] 데미지 숫자를 화면에 그립니다.
-     * libGDX Array의 중첩 반복 에러를 방지하기 위해 일반 for문을 사용합니다.
-     */
+    // 데미지 숫자를 화면에 그립니다.
     private void drawDamagePopups(Unit unit, Vector2 basePos) {
-        // 향상된 for문(Iterator) 사용 시 네이티브 크래시 위험이 있어 인덱스 for문으로 교체
         for (int i = 0; i < unit.damageTexts.size; i++) {
             Unit.DamageText dt = unit.damageTexts.get(i);
-
-            // 텍스트 색상 및 투명도 설정
             font.setColor(dt.color.r, dt.color.g, dt.color.b, dt.alpha);
 
             String displayTxt = "-" + dt.text;
             layout.setText(font, displayTxt);
 
-            // 유닛 위치 기준으로 연출 좌표(dt.offsetPos)에 텍스트 렌더링
             font.draw(batch, displayTxt,
                 basePos.x - (layout.width / 2f),
                 basePos.y + dt.offsetPos.y);
         }
-        // 폰트 설정 초기화
         font.setColor(Color.WHITE);
     }
 
@@ -139,7 +141,8 @@ public class UnitRenderer {
         batch.draw(tex, x - (targetWidth / 2f), y, targetWidth, targetHeight);
     }
 
-    private void drawStatusUI(Unit unit, float x, float y, boolean isSelected) {
+    // 유닛의 체력바와 이름을 렌더링하며, 하이라이트 상태에 따른 투명도를 반영합니다.
+    private void drawStatusUI(Unit unit, float x, float y, boolean isSelected, float alpha) {
         boolean isAlly = unit.team.equals(playerTeam);
         Color teamColor = isAlly ? Color.GREEN : Color.RED;
 
@@ -150,12 +153,14 @@ public class UnitRenderer {
         if (batch.isDrawing()) batch.end();
 
         shape.begin(ShapeRenderer.ShapeType.Filled);
-        shape.setColor(Color.BLACK);
+        // 배경 바 투명도 적용
+        shape.setColor(0, 0, 0, alpha);
         shape.rect(x - (hpBarWidth / 2f), hpBarY, hpBarWidth, hpBarHeight);
 
         float hpPercent = (float) unit.currentHp / unit.stat.hp();
         if (hpPercent > 0) {
-            shape.setColor(teamColor);
+            // 잔량 바 투명도 적용
+            shape.setColor(teamColor.r, teamColor.g, teamColor.b, alpha);
             shape.rect(x - (hpBarWidth / 2f), hpBarY, hpBarWidth * hpPercent, hpBarHeight);
         }
         shape.end();
@@ -163,7 +168,8 @@ public class UnitRenderer {
         batch.begin();
 
         if (isSelected) {
-            font.setColor(Color.YELLOW);
+            // 선택된 유닛은 항상 선명하게 이름 표시
+            font.setColor(1, 1, 0, 1.0f);
             layout.setText(font, unit.name);
             font.draw(batch, unit.name, x - (layout.width / 2f), hpBarY + 35f);
         }
