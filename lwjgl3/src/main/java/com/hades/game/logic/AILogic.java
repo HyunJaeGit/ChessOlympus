@@ -9,7 +9,6 @@ import com.hades.game.constants.SkillData;
 
 public class AILogic {
 
-    // AILogic.java의 processAITurn 메서드 수정
     public static void processAITurn(Array<Unit> units, String aiTeam, TurnManager turnManager, Object screenObj) {
         try {
             String strategy = getStrategy();
@@ -21,7 +20,8 @@ public class AILogic {
             int targetY = (int) bestMove[2];
 
             if (actor != null) {
-                // [AI 보스] 이동 전 고유 권능 장전 (쿨타임 계산 없음)
+                // [AI 보스 전용] 이동 전 고유 권능 장전
+                // AI 보스는 스킬이 1개로 고정되어 있으므로 쿨타임/점수 계산 없이 매 턴 장전합니다.
                 if (actor.unitClass == Unit.UnitClass.HERO) {
                     String bossSkill = actor.stat.skillName();
                     actor.stat.setReservedSkill(bossSkill);
@@ -31,18 +31,22 @@ public class AILogic {
                 System.out.println("[AI Action] " + actor.name + " move to (" + targetX + "," + targetY + ")"); // AI_TEST_LOG
                 actor.setPosition(targetX, targetY);
 
-                // 이동 후 처리를 BattleScreen의 통합 메서드로 넘김
+                // [통합 로직 호출] 이동이 끝난 위치에서 장전된 스킬 발동 + 일반 유닛 자동 공격 수행
                 if (screenObj instanceof BattleScreen) {
                     ((BattleScreen) screenObj).processMoveEnd(actor);
                 }
+            } else {
+                System.out.println("[AI Action] No movable units found."); // AI_TEST_LOG
             }
+
         } catch (Exception e) {
+            System.err.println("[AI Error] Exception in AI Logic loop"); // AI_TEST_LOG
             e.printStackTrace();
         } finally {
+            // 모든 액션(이동/스킬/자동공격)이 processMoveEnd 내에서 끝난 후 턴을 종료합니다.
             turnManager.endTurn();
         }
     }
-
     private static String getStrategy() {
         float roll = MathUtils.random(0f, 100f);
         // 내부 로직 비교를 위해 영문으로 전략명 변경
