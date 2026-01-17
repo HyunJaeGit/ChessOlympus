@@ -28,6 +28,7 @@ public class MapRenderer {
         this.tileTop = tileTop;
     }
 
+    // 타일 렌더링 로직
     public void drawTiles(Vector2 hoveredGrid, Unit selectedUnit, Array<Unit> units) {
         batch.begin();
         float drawW = GameConfig.TILE_WIDTH - TILE_PADDING;
@@ -37,22 +38,22 @@ public class MapRenderer {
             for (int x = 0; x < GameConfig.BOARD_WIDTH; x++) {
                 Vector2 pos = IsoUtils.gridToScreen(x, y);
 
-                // 1. 타일 옆면 (어둡게 처리하여 입체감 강조)
+                // 1. 타일 옆면 (입체감 효과)
                 for (int i = TILE_DEPTH; i > 0; i--) {
                     float b = 0.2f + (0.2f * (1.0f - (float)i / TILE_DEPTH));
                     batch.setColor(b, b, b, 1.0f);
                     batch.draw(tileTop, pos.x - drawW / 2f, pos.y - drawH / 2f - i, drawW, drawH);
                 }
 
-                // 2. 타일 윗면 색상 설정
-                Color tileColor = new Color(0.9f, 0.9f, 0.9f, 1f); // 기본 타일 색상
+                // 2. 타일 윗면 색상
+                Color tileColor = new Color(0.9f, 0.9f, 0.9f, 1f);
 
-                // 이동 범위: 세련된 다크 시안 (투명도 활용)
+                // 이동 가능 범위 표시
                 if (selectedUnit != null && BoardManager.canMoveTo(selectedUnit, x, y, units)) {
                     tileColor = new Color(0.2f, 0.5f, 0.7f, 0.6f);
                 }
 
-                // 마우스 오버: 살짝 밝아지는 효과
+                // 마우스 오버 효과
                 if (x == (int) hoveredGrid.x && y == (int) hoveredGrid.y) {
                     tileColor = tileColor.cpy().add(0.2f, 0.2f, 0.2f, 0);
                 }
@@ -64,11 +65,12 @@ public class MapRenderer {
         batch.setColor(Color.WHITE);
         batch.end();
     }
-    // 사거리 오버레이
+
+    // 기본 공격 사거리 표시
     public void drawRangeOverlays(Unit unit) {
         if (unit == null) return;
         Gdx.gl.glEnable(GL20.GL_BLEND);
-        Gdx.gl.glLineWidth(1.2f); // 얇고 날카로운 선
+        Gdx.gl.glLineWidth(1.2f);
         shape.begin(ShapeRenderer.ShapeType.Line);
 
         for (int x = 0; x < GameConfig.BOARD_WIDTH; x++) {
@@ -80,7 +82,6 @@ public class MapRenderer {
                 int dy = Math.abs(unit.gridY - y);
                 int dist = dx + dy;
 
-                // [추가] 변수 선언 및 병과별 사거리 판정
                 boolean canAttackTile = false;
                 if (unit.unitClass == Unit.UnitClass.ARCHER) {
                     if ((dx == 0 || dy == 0) && dist <= unit.stat.range()) canAttackTile = true;
@@ -91,7 +92,6 @@ public class MapRenderer {
                 }
 
                 if (canAttackTile) {
-                    // 깊은 와인색 (Deep Crimson) 적용
                     shape.setColor(new Color(0.6f, 0.1f, 0.1f, 0.7f));
                     drawIsoShape(pos.x, pos.y);
                 }
@@ -101,10 +101,35 @@ public class MapRenderer {
         Gdx.gl.glLineWidth(1f);
     }
 
-    // 마름모 형태의 가이드 라인
+    // [신규] 스킬 장전 시 주황색 사거리 가이드 표시
+    public void drawSkillRange(Unit unit, int skillRange) {
+        if (unit == null) return;
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glLineWidth(2.0f); // 스킬 범위는 더 굵게 강조
+        shape.begin(ShapeRenderer.ShapeType.Line);
+
+        // 권능 상태를 나타내는 선명한 주황색
+        shape.setColor(new Color(1.0f, 0.65f, 0.0f, 0.9f));
+
+        for (int x = 0; x < GameConfig.BOARD_WIDTH; x++) {
+            for (int y = 0; y < GameConfig.BOARD_HEIGHT; y++) {
+                int dist = Math.abs(unit.gridX - x) + Math.abs(unit.gridY - y);
+
+                // 유닛 자신을 제외한 사거리 내 타일들에 가이드 출력
+                if (dist > 0 && dist <= skillRange) {
+                    Vector2 pos = IsoUtils.gridToScreen(x, y);
+                    drawIsoShape(pos.x, pos.y);
+                }
+            }
+        }
+        shape.end();
+        Gdx.gl.glLineWidth(1f);
+    }
+
+    // 마름모 형태 그리기 공통 메서드
     private void drawIsoShape(float cx, float cy) {
-        float hw = GameConfig.TILE_WIDTH / 2f;
-        float hh = GameConfig.TILE_HEIGHT / 2f;
+        float hw = GameConfig.TILE_WIDTH / 2f - 2f;
+        float hh = GameConfig.TILE_HEIGHT / 2f - 1f;
 
         shape.line(cx, cy + hh, cx - hw, cy);
         shape.line(cx - hw, cy, cx, cy - hh);

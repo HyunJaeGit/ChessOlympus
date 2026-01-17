@@ -83,7 +83,7 @@ public class UnitData {
     public static final String IMG_SAINT   = "성녀";
 
     // --- [하데스 영웅 스탯] 초기 스킬을 "기본 공격"으로 수정 ---
-    public static final Stat SOM_JUMEOK  = new Stat(200, 45, 30 , 1, 1, "기본 공격", 1000);
+    public static final Stat SOM_JUMEOK  = new Stat(200, 145, 30 , 5, 5, "기본 공격", 1000);
     public static final Stat KIMA        = new Stat(110, 50, 15, 1, 1, "기본 공격", 1000);
     public static final Stat CHAN_NA     = new Stat(125, 35, 17, 1, 1, "기본 공격", 1000);
     public static final Stat THING_GYUL  = new Stat(95, 20, 5, 1, 1, "기본 공격", 1000);

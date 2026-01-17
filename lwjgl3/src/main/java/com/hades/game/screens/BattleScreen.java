@@ -102,7 +102,7 @@ public class BattleScreen extends ScreenAdapter {
 
         if (heroStat != null) {
             heroStat.resetSkillStatus();
-            heroStat.clearReservedSkill(); // 시작 시 예약된 스킬 초기화
+            heroStat.clearReservedSkill();
         }
 
         units = new Array<>();
@@ -141,10 +141,6 @@ public class BattleScreen extends ScreenAdapter {
         Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        game.batch.setColor(Color.WHITE);
-        game.unitFont2.setColor(Color.WHITE);
-        game.unitFont3.setColor(Color.WHITE);
-
         game.batch.setProjectionMatrix(stage.getViewport().getCamera().combined);
         shape.setProjectionMatrix(stage.getViewport().getCamera().combined);
 
@@ -153,7 +149,16 @@ public class BattleScreen extends ScreenAdapter {
         game.batch.end();
 
         mapRenderer.drawTiles(hoveredGrid, selectedUnit, units);
-        if (!gameOver && selectedUnit != null) mapRenderer.drawRangeOverlays(selectedUnit);
+
+        // 스킬 장전 여부에 따른 범위 표시
+        if (!gameOver && selectedUnit != null && selectedUnit.team.equals(playerTeam)) {
+            String reserved = selectedUnit.stat.getReservedSkill();
+            if (reserved != null) {
+                mapRenderer.drawSkillRange(selectedUnit, SkillData.get(reserved).range);
+            } else {
+                mapRenderer.drawRangeOverlays(selectedUnit);
+            }
+        }
 
         game.batch.begin();
         for (Unit u : units) if (u.isAlive()) unitRenderer.renderShadow(u, selectedUnit);
@@ -191,6 +196,11 @@ public class BattleScreen extends ScreenAdapter {
     }
 
     private void handleInput() {
+
+        // 디버그용 치트키: K를 누르면 적 보스를 즉시 처치합니다.
+        // deathHandler로 현재 클래스의 handleDeath 메서드를 전달합니다.
+        com.hades.game.utils.DebugManager.handleBattleDebug(game, units, aiTeam, this::handleDeath);
+
         if (gameOver) return;
         Vector2 touchPos = new Vector2(Gdx.input.getX(), Gdx.input.getY());
         stage.getViewport().unproject(touchPos);
@@ -207,9 +217,14 @@ public class BattleScreen extends ScreenAdapter {
             if (selectedUnit != null && selectedUnit.team.equals(playerTeam) && selectedUnit.unitClass == Unit.UnitClass.HERO) {
                 String clickedSkill = gameUI.getClickedSkill(mx, my, selectedUnit);
                 if (clickedSkill != null) {
+                    String currentReserved = selectedUnit.stat.getReservedSkill();
+                    if (currentReserved != null && !currentReserved.equals(clickedSkill)) {
+                        gameUI.addLog("[" + currentReserved + "] 취소, [" + clickedSkill + "] 장전!", "SYSTEM", playerTeam);
+                    } else {
+                        gameUI.addLog(clickedSkill + " 장전됨! 이동 시 발동합니다.", selectedUnit.team, playerTeam);
+                    }
                     game.playClick(1.1f);
                     selectedUnit.stat.setReservedSkill(clickedSkill);
-                    gameUI.addLog(clickedSkill + " 장전됨! 이동 시 발동합니다.", selectedUnit.team, playerTeam);
                     return;
                 }
             }
@@ -224,7 +239,6 @@ public class BattleScreen extends ScreenAdapter {
                 int ty = (int) hoveredGrid.y;
                 if (tx >= 0 && ty >= 0 && selectedUnit.team.equals(playerTeam) && BoardManager.canMoveTo(selectedUnit, tx, ty, units)) {
                     selectedUnit.setPosition(tx, ty);
-
                     String reservedSkill = selectedUnit.stat.getReservedSkill();
                     if (reservedSkill != null) {
                         executeActiveSkill(selectedUnit, reservedSkill);
@@ -233,7 +247,6 @@ public class BattleScreen extends ScreenAdapter {
                     } else {
                         processAutoAttack(playerTeam);
                     }
-
                     selectedUnit = null;
                     aiBusy = true;
                     turnManager.endTurn();
@@ -255,44 +268,25 @@ public class BattleScreen extends ScreenAdapter {
     private void executeActiveSkill(Unit hero, String skillName) {
         SkillData.Skill data = SkillData.get(skillName);
         gameUI.addLog("권능 해방!! [" + skillName + "]", hero.team, playerTeam);
-
         int damage = (int)(hero.stat.atk() * data.power);
-
         for (int i = 0; i < units.size; i++) {
             Unit target = units.get(i);
             if (target != null && target.isAlive() && !target.team.equals(hero.team)) {
                 int dist = Math.abs(hero.gridX - target.gridX) + Math.abs(hero.gridY - target.gridY);
-
                 if (dist <= data.range) {
                     target.currentHp -= damage;
                     gameUI.addLog(target.name + "에게 " + damage + "의 피해!", hero.team, playerTeam);
-
                     if (target.currentHp <= 0) {
                         target.currentHp = 0;
                         target.status = Unit.DEAD;
                         gameUI.addLog(target.name + " 처치됨!", hero.team, playerTeam);
-                        checkBossDeath(target);
+                        handleDeath(target);
                     }
                     if (!data.isAoE) break;
                 }
             }
         }
         processAutoHeal(hero.team);
-    }
-
-    private void checkBossDeath(Unit deadUnit) {
-        boolean isEnemyBoss = deadUnit.team.equals(aiTeam) && deadUnit.unitClass == Unit.UnitClass.HERO;
-        boolean isPlayerHero = deadUnit.team.equals(playerTeam) && deadUnit.unitClass == Unit.UnitClass.HERO;
-
-        if (isEnemyBoss) {
-            gameOver = true;
-            gameUI.addLog("승리! 적의 수장을 물리쳤습니다.");
-            showGameOverMenu(true);
-        } else if (isPlayerHero) {
-            gameOver = true;
-            gameUI.addLog("패배... 하데스의 영웅이 전사했습니다.");
-            showGameOverMenu(false);
-        }
     }
 
     public void processAutoAttack(String team) {
@@ -335,14 +329,12 @@ public class BattleScreen extends ScreenAdapter {
         int damage = attacker.getPower(isAttackerTurn);
         target.currentHp -= damage;
         gameUI.addLog(attacker.name + " -> " + target.name + " [" + damage + " 데미지]", attacker.team, playerTeam);
-
         if (target.currentHp <= 0) {
             target.currentHp = 0;
             gameUI.addLog(target.name + " 처치됨!", attacker.team, playerTeam);
             handleDeath(target);
             return;
         }
-
         if (target.canReach(attacker)) {
             int counterDamage = target.getPower(turnManager.isMyTurn(target.team));
             attacker.currentHp -= counterDamage;
@@ -355,6 +347,7 @@ public class BattleScreen extends ScreenAdapter {
         }
     }
 
+    // 유닛 사망 처리 및 승리/패배 조건 체크
     private void handleDeath(Unit target) {
         target.status = Unit.DEAD;
         boolean isEnemyBoss = target.team.equals(aiTeam) && target.unitClass == Unit.UnitClass.HERO;
@@ -362,8 +355,18 @@ public class BattleScreen extends ScreenAdapter {
 
         if (isEnemyBoss) {
             gameOver = true;
-            gameUI.addLog("승리! 적의 수장을 물리쳤습니다.");
-            showGameOverMenu(true);
+            // 7스테이지(최종 보스 제우스) 승리 시 처리
+            if (stageLevel == 7) {
+                // 엔딩 컷씬(Stage 8) 데이터를 로드하여 재생 후, 종료 시 EndingScreen으로 이동하게 설정
+                game.setScreen(new com.hades.game.screens.cutscene.BaseCutsceneScreen(
+                    game,
+                    com.hades.game.screens.cutscene.CutsceneManager.getStageData(8),
+                    new EndingScreen(game)
+                ));
+            } else {
+                gameUI.addLog("승리! 적의 수장을 물리쳤습니다.");
+                showGameOverMenu(true);
+            }
         } else if (isPlayerHero) {
             gameOver = true;
             gameUI.addLog("패배... 하데스의 영웅이 전사했습니다.");
@@ -409,6 +412,8 @@ public class BattleScreen extends ScreenAdapter {
         homeBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
+                game.playClick();
+                resetMusicToHome();
                 game.setScreen(new MenuScreen(game));
             }
         });
@@ -416,6 +421,14 @@ public class BattleScreen extends ScreenAdapter {
         table.add(homeBtn);
         stage.addActor(table);
         Gdx.input.setInputProcessor(stage);
+    }
+
+    private void resetMusicToHome() {
+        if (game.battleBgm != null) game.battleBgm.stop();
+        if (game.menuBgm != null) {
+            game.menuBgm.setVolume(game.globalVolume);
+            game.menuBgm.play();
+        }
     }
 
     private void cleanupDeadUnits() {

@@ -129,18 +129,24 @@ public class BaseCutsceneScreen extends ScreenAdapter {
     public void show() {
         Gdx.input.setInputProcessor(stage);
 
-        // 컷씬 데이터에 지정된 BGM 재생
+        // 컷씬 데이터에 지정된 BGM 재생 로직
         if (data.bgmPath() != null) {
-            // 현재 재생 중인 메뉴 음악 등이 있다면 정지 및 제거
+            // 현재 재생 중인 동적 BGM이 있다면 정지 및 자원 해제
             if (game.currentBgm != null) {
                 game.currentBgm.stop();
                 game.currentBgm.dispose();
+                game.currentBgm = null;
             }
-            // 새로운 스테이지 배경음악 로드
-            game.currentBgm = Gdx.audio.newMusic(Gdx.files.internal(data.bgmPath()));
-            game.currentBgm.setLooping(true);
-            game.currentBgm.setVolume(game.globalVolume); // 메인 메뉴에서 설정한 볼륨 적용
-            game.currentBgm.play();
+
+            // 새로운 컷씬 음악 로드 및 재생
+            try {
+                game.currentBgm = Gdx.audio.newMusic(Gdx.files.internal(data.bgmPath()));
+                game.currentBgm.setLooping(true);
+                game.currentBgm.setVolume(game.globalVolume);
+                game.currentBgm.play();
+            } catch (Exception e) {
+                Gdx.app.error("BaseCutsceneScreen", "음악 로드 실패: " + data.bgmPath());
+            }
         }
     }
 

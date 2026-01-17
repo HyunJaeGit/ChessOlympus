@@ -76,7 +76,7 @@ public class GameUI implements Disposable {
         // 2. 우측 상단 메뉴
         game.batch.draw(timerBoxBg, menuHitbox.x, menuHitbox.y + 10, menuHitbox.width - 10, menuHitbox.height - 14);
         String mode = Gdx.graphics.isFullscreen() ? "WINDOW" : "FULLSCREEN";
-        game.unitFont3.draw(game.batch, mode, menuHitbox.x, menuHitbox.y + 45, menuHitbox.width, Align.center, false);
+        game.unitFont3.draw(game.batch, mode, menuHitbox.x, menuHitbox.y + 40, menuHitbox.width, Align.center, false);
 
         // 3. 전투 로그 (GameUI가 색상을 직접 관리)
         game.batch.draw(logInfoBg, 400, 10, 800, 240);
@@ -120,7 +120,7 @@ public class GameUI implements Disposable {
             else if (skillName.equals(reserved)) game.unitFont3.setColor(Color.YELLOW);
             else game.unitFont3.setColor(Color.WHITE);
 
-            game.unitFont3.draw(game.batch, (i + 1) + ". " + skillName, SKILL_X, y);
+            game.unitFont3.draw(game.batch, (i + 1) + ". " + skillName, SKILL_X+10, y-5);   // 스킬 목록 텍스트
         }
         game.unitFont3.setColor(Color.WHITE);
     }
