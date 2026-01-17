@@ -29,6 +29,7 @@ import com.hades.game.view.MapRenderer;
 import com.hades.game.view.UnitRenderer;
 import com.hades.game.view.UI;
 
+// 실제 전투가 이루어지는 메인 스크린 클래스입니다.
 public class BattleScreen extends ScreenAdapter {
     private final HadesGame game;
     private ShapeRenderer shape;
@@ -141,6 +142,12 @@ public class BattleScreen extends ScreenAdapter {
         Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
+        // 정밀 마우스 좌표 계산 (ViewPort unproject 적용)
+        Vector2 touchPos = new Vector2(Gdx.input.getX(), Gdx.input.getY());
+        stage.getViewport().unproject(touchPos);
+        float mx = touchPos.x;
+        float my = touchPos.y;
+
         game.batch.setProjectionMatrix(stage.getViewport().getCamera().combined);
         shape.setProjectionMatrix(stage.getViewport().getCamera().combined);
 
@@ -150,7 +157,6 @@ public class BattleScreen extends ScreenAdapter {
 
         mapRenderer.drawTiles(hoveredGrid, selectedUnit, units);
 
-        // 스킬 장전 여부에 따른 범위 표시
         if (!gameOver && selectedUnit != null && selectedUnit.team.equals(playerTeam)) {
             String reserved = selectedUnit.stat.getReservedSkill();
             if (reserved != null) {
@@ -163,7 +169,9 @@ public class BattleScreen extends ScreenAdapter {
         game.batch.begin();
         for (Unit u : units) if (u.isAlive()) unitRenderer.renderShadow(u, selectedUnit);
         for (Unit u : units) if (u.isAlive()) unitRenderer.renderBody(u, selectedUnit);
-        gameUI.render(stageLevel, turnManager.getCurrentTurn(), playerTeam, menuHitbox, selectedUnit);
+
+        // GameUI 렌더링 시 정밀 좌표 mx, my를 전달하여 툴팁 판정 문제를 해결합니다.
+        gameUI.render(stageLevel, turnManager.getCurrentTurn(), playerTeam, menuHitbox, selectedUnit, mx, my);
         game.batch.end();
 
         if (gameOver) {
@@ -196,9 +204,6 @@ public class BattleScreen extends ScreenAdapter {
     }
 
     private void handleInput() {
-
-        // 디버그용 치트키: K를 누르면 적 보스를 즉시 처치합니다.
-        // deathHandler로 현재 클래스의 handleDeath 메서드를 전달합니다.
         com.hades.game.utils.DebugManager.handleBattleDebug(game, units, aiTeam, this::handleDeath);
 
         if (gameOver) return;
@@ -218,13 +223,15 @@ public class BattleScreen extends ScreenAdapter {
                 String clickedSkill = gameUI.getClickedSkill(mx, my, selectedUnit);
                 if (clickedSkill != null) {
                     String currentReserved = selectedUnit.stat.getReservedSkill();
-                    if (currentReserved != null && !currentReserved.equals(clickedSkill)) {
-                        gameUI.addLog("[" + currentReserved + "] 취소, [" + clickedSkill + "] 장전!", "SYSTEM", playerTeam);
+
+                    if (clickedSkill.equals(currentReserved)) {
+                        selectedUnit.stat.clearReservedSkill();
+                        gameUI.addLog(clickedSkill + " 장전 취소", "SYSTEM", playerTeam);
                     } else {
-                        gameUI.addLog(clickedSkill + " 장전됨! 이동 시 발동합니다.", selectedUnit.team, playerTeam);
+                        selectedUnit.stat.setReservedSkill(clickedSkill);
+                        gameUI.addLog(clickedSkill + " 장전됨! 이동 시 발동.", selectedUnit.team, playerTeam);
                     }
                     game.playClick(1.1f);
-                    selectedUnit.stat.setReservedSkill(clickedSkill);
                     return;
                 }
             }
@@ -239,14 +246,23 @@ public class BattleScreen extends ScreenAdapter {
                 int ty = (int) hoveredGrid.y;
                 if (tx >= 0 && ty >= 0 && selectedUnit.team.equals(playerTeam) && BoardManager.canMoveTo(selectedUnit, tx, ty, units)) {
                     selectedUnit.setPosition(tx, ty);
+
                     String reservedSkill = selectedUnit.stat.getReservedSkill();
                     if (reservedSkill != null) {
-                        executeActiveSkill(selectedUnit, reservedSkill);
+                        // 이동 후 사거리 내에 타겟이 있는지 검사합니다.
+                        if (isAnyTargetInRange(selectedUnit, reservedSkill)) {
+                            executeActiveSkill(selectedUnit, reservedSkill);
+                            selectedUnit.stat.setSkillUsed(reservedSkill, true);
+                        } else {
+                            // 타겟이 없으면 장전 자동 취소 및 일반 공격 시도
+                            gameUI.addLog("사거리 내 적이 없어 " + reservedSkill + " 장전이 취소되었습니다.", "SYSTEM", playerTeam);
+                            processAutoAttack(playerTeam);
+                        }
                         selectedUnit.stat.clearReservedSkill();
-                        selectedUnit.stat.setSkillUsed(true);
                     } else {
                         processAutoAttack(playerTeam);
                     }
+
                     selectedUnit = null;
                     aiBusy = true;
                     turnManager.endTurn();
@@ -263,6 +279,18 @@ public class BattleScreen extends ScreenAdapter {
             }
             selectedUnit = clickedUnit;
         }
+    }
+
+    // 특정 스킬의 사거리 내에 적이 존재하는지 판별합니다.
+    private boolean isAnyTargetInRange(Unit hero, String skillName) {
+        SkillData.Skill data = SkillData.get(skillName);
+        for (Unit target : units) {
+            if (target.isAlive() && !target.team.equals(hero.team)) {
+                int dist = Math.abs(hero.gridX - target.gridX) + Math.abs(hero.gridY - target.gridY);
+                if (dist <= data.range) return true;
+            }
+        }
+        return false;
     }
 
     private void executeActiveSkill(Unit hero, String skillName) {
@@ -324,21 +352,64 @@ public class BattleScreen extends ScreenAdapter {
     }
 
     public void performAttack(Unit attacker, Unit target) {
+        // 공격자와 방어자의 생존 여부 및 존재 확인
         if (attacker == null || target == null || !target.isAlive() || !attacker.isAlive()) return;
+
         boolean isAttackerTurn = turnManager.isMyTurn(attacker.team);
-        int damage = attacker.getPower(isAttackerTurn);
-        target.currentHp -= damage;
-        gameUI.addLog(attacker.name + " -> " + target.name + " [" + damage + " 데미지]", attacker.team, playerTeam);
+        int damage = attacker.getPower(isAttackerTurn); // 기본 능력치 기반 공격력 계산
+        float skillMultiplier = 1.0f;
+        String activeSkillName = null;
+
+        // --- 영웅 유닛 전용 권능/진노 발동 판단 ---
+        if (attacker.unitClass == Unit.UnitClass.HERO) {
+            if (!attacker.team.equals(playerTeam)) {
+                // [AI 보스] 설정된 전용 권능을 매 공격 시 자동으로 사용
+                activeSkillName = attacker.stat.skillName();
+                SkillData.Skill skill = SkillData.get(activeSkillName);
+                skillMultiplier = skill.power;
+
+                gameUI.addLog("[권능] " + attacker.name + ": [" + activeSkillName + "]!", attacker.team, playerTeam);
+            } else {
+                // [플레이어 하데스] UI에서 선택하여 '장전된(Reserved)' 스킬이 있을 때만 발동
+                String reserved = attacker.stat.getReservedSkill();
+                if (reserved != null && !reserved.equals("기본 공격")) {
+                    activeSkillName = reserved;
+                    SkillData.Skill skill = SkillData.get(activeSkillName);
+                    skillMultiplier = skill.power;
+
+                    gameUI.addLog("[권능] " + attacker.name + ": [" + activeSkillName + "]!", attacker.team, playerTeam);
+
+                    // 사용 완료된 스킬 소모 처리 및 쿨타임 관리
+                    attacker.stat.clearReservedSkill();
+                    attacker.stat.setSkillUsed(activeSkillName, true);
+                }
+            }
+        }
+
+        // 최종 데미지 적용 및 로그 출력
+        int finalDamage = (int)(damage * skillMultiplier);
+        target.currentHp -= finalDamage;
+
+        if (activeSkillName != null) {
+            gameUI.addLog(attacker.name + " -> " + target.name + " [" + activeSkillName + "] " + finalDamage + " 데미지", attacker.team, playerTeam);
+        } else {
+            gameUI.addLog(attacker.name + " -> " + target.name + " " + finalDamage + " 데미지", attacker.team, playerTeam);
+        }
+
+        // --- 처치 판정 및 반격 로직 ---
         if (target.currentHp <= 0) {
             target.currentHp = 0;
             gameUI.addLog(target.name + " 처치됨!", attacker.team, playerTeam);
             handleDeath(target);
             return;
         }
+
+        // 방어자의 사거리 내에 공격자가 있다면 즉시 반격 실행
         if (target.canReach(attacker)) {
             int counterDamage = target.getPower(turnManager.isMyTurn(target.team));
             attacker.currentHp -= counterDamage;
-            gameUI.addLog(target.name + "의 반격! [" + counterDamage + " 데미지]", target.team, playerTeam);
+            gameUI.addLog(target.name + "의 반격! " + counterDamage + " 데미지", target.team, playerTeam);
+
             if (attacker.currentHp <= 0) {
                 attacker.currentHp = 0;
                 gameUI.addLog(attacker.name + " 처치됨!", target.team, playerTeam);
@@ -347,7 +418,6 @@ public class BattleScreen extends ScreenAdapter {
         }
     }
 
-    // 유닛 사망 처리 및 승리/패배 조건 체크
     private void handleDeath(Unit target) {
         target.status = Unit.DEAD;
         boolean isEnemyBoss = target.team.equals(aiTeam) && target.unitClass == Unit.UnitClass.HERO;
@@ -355,9 +425,7 @@ public class BattleScreen extends ScreenAdapter {
 
         if (isEnemyBoss) {
             gameOver = true;
-            // 7스테이지(최종 보스 제우스) 승리 시 처리
             if (stageLevel == 7) {
-                // 엔딩 컷씬(Stage 8) 데이터를 로드하여 재생 후, 종료 시 EndingScreen으로 이동하게 설정
                 game.setScreen(new com.hades.game.screens.cutscene.BaseCutsceneScreen(
                     game,
                     com.hades.game.screens.cutscene.CutsceneManager.getStageData(8),

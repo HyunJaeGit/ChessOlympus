@@ -94,7 +94,8 @@ public class MenuScreen extends ScreenAdapter {
         menuGroup.add(volumeRow).padBottom(15).row();
 
         // --- 화면 모드 버튼 행 (문제 해결 포인트) ---
-        screenBtn = new Label(Gdx.graphics.isFullscreen() ? "WINDOW" : "FULLSCREEN", new Label.LabelStyle(game.mainFont, COLOR_POINT));
+        screenBtn = new Label(Gdx.graphics.isFullscreen() ? "WINDOW" : "FULLSCREEN",
+            new Label.LabelStyle(game.detailFont2, COLOR_POINT));
         UI.addHoverEffect(game, screenBtn, COLOR_POINT, COLOR_MAIN);
         // 클릭 리스너 추가
         screenBtn.addListener(new ClickListener() {
@@ -107,7 +108,8 @@ public class MenuScreen extends ScreenAdapter {
         menuGroup.add(screenBtn).padBottom(15).row();
 
         // --- 게임 시작 버튼 ---
-        Label startBtn = new Label("GAME START", new Label.LabelStyle(game.mainFont, COLOR_MAIN));
+        Label startBtn = new Label("GAME START",
+            new Label.LabelStyle(game.detailFont2, COLOR_MAIN));
         UI.addHoverEffect(game, startBtn, COLOR_MAIN, COLOR_GOLD);
         startBtn.addListener(new ClickListener() {
             @Override
@@ -129,7 +131,8 @@ public class MenuScreen extends ScreenAdapter {
         menuGroup.add(startBtn).padBottom(15).row();
 
         // --- 종료 버튼 ---
-        Label exitBtn = new Label("EXIT GAME", new Label.LabelStyle(game.mainFont, COLOR_SUB));
+        Label exitBtn = new Label("EXIT GAME",
+            new Label.LabelStyle(game.detailFont2, COLOR_SUB));
         UI.addHoverEffect(game, exitBtn, COLOR_SUB, Color.FIREBRICK);
         exitBtn.addListener(new ClickListener() {
             @Override
@@ -146,7 +149,7 @@ public class MenuScreen extends ScreenAdapter {
         stage.addActor(bottomTable);
 
         Label infoLabel = new Label(
-            "비영리/비상업용 팬게임이며 수익창출을 금지합니다.\n " +
+            "비영리/비상업용 팬게임이며 수익창출/2차창작을 금지합니다.\n " +
                 "모든 권리는 제작자 '데브케이'에 있습니다." +
                 "\n문의 : fatking25@kakao.com",
             new Label.LabelStyle(game.detailFont, new Color(0.4f, 0.4f, 0.4f, 1f))

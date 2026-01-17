@@ -96,18 +96,20 @@ public class UpgradeScreen extends ScreenAdapter {
         rightSide.setBackground(UI.getColoredDrawable(0, 0, 0, 0.5f)); // 가독성 핵심: 어두운 패널 추가
         rightSide.pad(30, 40, 30, 40);
 
-        rightSide.add(new Label(heroName + "의 각성 (파편 소모)", new Label.LabelStyle(game.detailFont, Color.WHITE))).padBottom(30).row();
+        // 제목 영역
+        rightSide.add(new Label(heroName + "의 각성 (파편 소모)", new Label.LabelStyle(game.detailFont, Color.WHITE)))
+            .colspan(2).left().padBottom(30).row();
 
-        // 체력 강화 로직
+        // 체력 강화 로직 (라벨과 버튼을 별도의 셀로 분리)
         hpLabel = new Label("최대 체력: " + heroStat.hp(), new Label.LabelStyle(game.detailFont, Color.WHITE));
-        Label hpPlus = new Label("[+] ", new Label.LabelStyle(game.detailFont, Color.CYAN));
+        Label hpPlus = new Label("[+]", new Label.LabelStyle(game.detailFont, Color.CYAN));
         hpPlus.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
                 if (game.soulFragments > 0) {
                     game.playClick();
                     game.soulFragments--;
-                    heroStat.setHp(heroStat.hp() + 10);
+                    heroStat.setHp(heroStat.hp() + 30);
                     updateUI();
                 } else {
                     showStatusMessage("영혼 파편이 부족합니다.");
@@ -115,7 +117,7 @@ public class UpgradeScreen extends ScreenAdapter {
             }
         });
 
-        // 공격력 강화 로직
+        // 공격력 강화 로직 (라벨과 버튼을 별도의 셀로 분리)
         atkLabel = new Label("공격력: " + heroStat.atk(), new Label.LabelStyle(game.detailFont, Color.WHITE));
         Label atkPlus = new Label("[+]", new Label.LabelStyle(game.detailFont, Color.CYAN));
         atkPlus.addListener(new ClickListener() {
@@ -124,7 +126,7 @@ public class UpgradeScreen extends ScreenAdapter {
                 if (game.soulFragments > 0) {
                     game.playClick();
                     game.soulFragments--;
-                    heroStat.setAtk(heroStat.atk() + 2);
+                    heroStat.setAtk(heroStat.atk() + 5);
                     updateUI();
                 } else {
                     showStatusMessage("영혼 파편이 부족합니다.");
@@ -132,10 +134,12 @@ public class UpgradeScreen extends ScreenAdapter {
             }
         });
 
-        rightSide.add(hpLabel).left();
-        rightSide.add(hpPlus).padLeft(20).row();
-        rightSide.add(atkLabel).left().padTop(15);
-        rightSide.add(atkPlus).padLeft(20).padTop(15).row();
+        // 스탯 정렬 배치: width(280)을 주어 [+] 버튼의 시작 위치를 고정합니다.
+        rightSide.add(hpLabel).left().width(280);
+        rightSide.add(hpPlus).left().row();
+
+        rightSide.add(atkLabel).left().width(280).padTop(15);
+        rightSide.add(atkPlus).left().padTop(15).row();
 
         // 권능 봉인 해제 버튼
         Label skillUnlockBtn = new Label("[ 랜덤 권능 봉인 해제 ]", new Label.LabelStyle(game.detailFont, Color.GOLD));
@@ -151,10 +155,11 @@ public class UpgradeScreen extends ScreenAdapter {
             }
         });
         UI.addHoverEffect(game, skillUnlockBtn, Color.GOLD, Color.WHITE);
-        rightSide.add(skillUnlockBtn).padTop(50).row();
+        rightSide.add(skillUnlockBtn).colspan(2).left().padTop(50).row();
 
-        currentSkillLabel = new Label("보유 권능: " + heroStat.getLearnedSkills().size + "개", new Label.LabelStyle(game.detailFont, Color.LIGHT_GRAY));
-        rightSide.add(currentSkillLabel).padTop(10).row();
+        currentSkillLabel = new Label("보유 권능: " + heroStat.getLearnedSkills().size + "개",
+            new Label.LabelStyle(game.detailFont, Color.LIGHT_GRAY));
+        rightSide.add(currentSkillLabel).colspan(2).left().padTop(10).row();
 
         contentTable.add(rightSide);
         mainTable.add(contentTable).center().expandY().row();
@@ -191,13 +196,15 @@ public class UpgradeScreen extends ScreenAdapter {
         stage.addActor(skillSelectionTable);
     }
 
+    // 권능해제 팝업 화면
     private void openSkillSelection() {
         skillSelectionTable.clear();
         skillSelectionTable.setVisible(true);
         mainTable.setVisible(false);
 
-        Label title = new Label("운명의 갈림길: 두 가지 권능 중 하나를 선택하십시오", new Label.LabelStyle(game.detailFont2, Color.GOLD));
-        skillSelectionTable.add(title).colspan(2).padBottom(60).row();
+        // 상단 타이틀 폰트
+        Label title = new Label("운명의 갈림길: 하나를 선택하십시오", new Label.LabelStyle(game.detailFont2, Color.GOLD));
+        skillSelectionTable.add(title).colspan(2).padBottom(40).row();
 
         if (fixedSkillOptions == null) {
             fixedSkillOptions = SkillData.getRandomSkills(2, heroStat.getLearnedSkills());
@@ -210,20 +217,25 @@ public class UpgradeScreen extends ScreenAdapter {
             for (final String sName : fixedSkillOptions) {
                 final SkillData.Skill skill = SkillData.get(sName);
 
+                // 카드 디자인: 너비와 높이
                 Table card = new Table();
-                card.setBackground(UI.getColoredDrawable(0.05f, 0.05f, 0.1f, 0.95f));
+                card.setBackground(UI.getColoredDrawable(0.1f, 0.1f, 0.15f, 0.9f)); // 약간 더 밝은 배경으로 구분감 증대
 
-                Label name = new Label(skill.name, new Label.LabelStyle(game.mainFont, Color.GOLD));
+                // 스킬 이름
+                Label name = new Label(skill.name, new Label.LabelStyle(game.unitFont2, Color.GOLD));
+
+                // 스킬 설명
                 Label desc = new Label(skill.description, new Label.LabelStyle(game.unitFont3, Color.WHITE));
                 desc.setWrap(true);
                 desc.setAlignment(Align.center);
 
-                card.add(name).padBottom(20).row();
-                card.add(desc).width(280).padBottom(40).row();
+                card.add(name).padBottom(15).row();
+                card.add(desc).width(240).padBottom(25).row(); // 너비 조정
 
-                Label selectBtn = new Label("[ 수락 ]", new Label.LabelStyle(game.mainFont, Color.LIME));
+                // 수락 버튼
+                Label selectBtn = new Label("[ 수락 ]", new Label.LabelStyle(game.detailFont, Color.LIME));
                 card.add(selectBtn);
-                card.pad(50);
+                card.pad(30); // 내부 여백 축소
 
                 card.addListener(new ClickListener() {
                     @Override
@@ -238,20 +250,22 @@ public class UpgradeScreen extends ScreenAdapter {
                     }
                 });
 
-                UI.addHoverEffect(game, card, Color.valueOf("1A1A1A"), Color.valueOf("2A2A2A"));
-                skillSelectionTable.add(card).pad(20).width(350).height(400);
+                // 호버 효과 색상 대비 강화
+                UI.addHoverEffect(game, card, Color.valueOf("1A1A1A"), Color.valueOf("333333"));
+                skillSelectionTable.add(card).pad(15).width(300).height(320); // 전체 카드 사이즈 축소
             }
         }
 
         skillSelectionTable.row();
-        Label cancelBtn = new Label("[ 돌아가기 ]", new Label.LabelStyle(game.mainFont, Color.GRAY));
+        // 돌아가기 버튼
+        Label cancelBtn = new Label("[ 돌아가기 ]", new Label.LabelStyle(game.detailFont, Color.GRAY));
         cancelBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
                 closeSkillSelection();
             }
         });
-        skillSelectionTable.add(cancelBtn).colspan(2).padTop(60);
+        skillSelectionTable.add(cancelBtn).colspan(2).padTop(40);
     }
 
     private void closeSkillSelection() {
