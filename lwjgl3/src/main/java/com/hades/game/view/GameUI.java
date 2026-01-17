@@ -134,7 +134,7 @@ public class GameUI implements Disposable {
         }
 
         for (int i = 0; i < visibleSkills.size; i++) {
-            Rectangle rect = new Rectangle(SKILL_X - 10, SKILL_Y - (i * SKILL_H) - 35, 250, 45);
+            Rectangle rect = new Rectangle(SKILL_X - 20, SKILL_Y - (i * SKILL_H) - 35, 250, 45);
             if (rect.contains(mx, my)) return visibleSkills.get(i);
         }
         return null;
@@ -145,7 +145,7 @@ public class GameUI implements Disposable {
         game.cardFont.setColor(Color.WHITE);
         game.cardFont.draw(game.batch, "HP : " + unit.currentHp + " / " + unit.stat.hp(), 55, 145);
         game.cardFont.draw(game.batch, "ATK: " + unit.stat.atk(), 55, 125);
-        game.cardFont.draw(game.batch, "CRK: " + unit.stat.counterAtk(), 55, 105);
+        game.cardFont.draw(game.batch, "CTK: " + unit.stat.counterAtk(), 55, 105);
     }
 
     @Override

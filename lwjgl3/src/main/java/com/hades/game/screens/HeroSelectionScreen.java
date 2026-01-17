@@ -156,8 +156,8 @@ public class HeroSelectionScreen extends ScreenAdapter {
         statTable.add(new Label("공격(ATK): " + stat.atk(), statStyle)).padRight(20);
         statTable.add(new Label("이동(MOV): " + stat.move(), statStyle)).row();
 
-        statTable.add(new Label("사거리: " + stat.range(), statStyle)).padTop(10).padRight(20);
-        statTable.add(new Label("반격력: " + stat.counterAtk(), statStyle)).padTop(10);
+        statTable.add(new Label("사거리(RAN): " + stat.range(), statStyle)).padTop(10).padRight(20);
+        statTable.add(new Label("반격력(CTK): " + stat.counterAtk(), statStyle)).padTop(10);
 
         rightSection.add(statTable).align(Align.left).padBottom(40).row();
 
@@ -166,21 +166,24 @@ public class HeroSelectionScreen extends ScreenAdapter {
 
         // 1. 전투 시작 버튼 컨테이너 생성
         Table startBtnCont = new Table();
-        startBtnCont.setTouchable(Touchable.enabled); // 테이블이 입력을 받도록 설정
-        final Label startBtnLabel = new Label("전투 시작", new Label.LabelStyle(game.detailFont, Color.RED));
-        startBtnCont.add(startBtnLabel).pad(15, 30, 15, 30); // 여백을 주어 마우스 감지 범위를 넓힘
+        startBtnCont.setTouchable(Touchable.enabled);
+        // 기본 색상을 LIME으로 설정 (Style에서 가져온 색상과 일치)
+        final Label startBtnLabel = new Label("전투 시작", new Label.LabelStyle(game.detailFont, Color.LIME));
+        startBtnCont.add(startBtnLabel).pad(15, 30, 15, 30);
 
         // 2. 닫기 버튼 컨테이너 생성
         Table closeBtnCont = new Table();
         closeBtnCont.setTouchable(Touchable.enabled);
+        // 기본 색상을 WHITE로 설정
         final Label closeBtnLabel = new Label("닫기", new Label.LabelStyle(game.detailFont, Color.WHITE));
         closeBtnCont.add(closeBtnLabel).pad(15, 30, 15, 30);
 
-        // UI.java의 오버로딩 메서드 사용: 컨테이너(Table)가 마우스를 감지하고, 라벨(Label) 색상을 바꿉니다.
-        UI.addHoverEffect(game, startBtnCont, startBtnLabel, Color.RED, Color.WHITE);
+        // UI.addHoverEffect 호출 시 첫 번째 색상(normalColor)을 Label의 초기 색상과 반드시 일치시킵니다.
+        // 마우스가 나갈 때(exit) 이 normalColor로 돌아가기 때문입니다.
+        UI.addHoverEffect(game, startBtnCont, startBtnLabel, Color.LIME, Color.WHITE);
         UI.addHoverEffect(game, closeBtnCont, closeBtnLabel, Color.WHITE, Color.GRAY);
 
-        // 클릭 리스너도 컨테이너
+        // 클릭 리스너 등록
         startBtnCont.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
@@ -203,11 +206,10 @@ public class HeroSelectionScreen extends ScreenAdapter {
             }
         });
 
-        // 버튼 레이아웃 배치
+        // 레이아웃 배치
         btnTable.add(startBtnCont).padRight(30);
         btnTable.add(closeBtnCont);
 
-        // 버튼 테이블을 우측 섹션 하단에 배치
         rightSection.add(btnTable).expandY().bottom().right();
         mainTable.add(rightSection).expandY().fillY();
 
