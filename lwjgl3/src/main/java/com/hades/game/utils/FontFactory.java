@@ -53,9 +53,10 @@ public class FontFactory {
         // 한글 유니코드 전체 범위 설정
         StringBuilder sb = new StringBuilder();
         sb.append(FreeTypeFontGenerator.DEFAULT_CHARS);
-        for (char c = 0xAC00; c <= 0xD7A3; c++) {
-            sb.append(c);
-        }
+        // 1. 한글 자음/모음 범위 추가 (0x3130 ~ 0x318F) - "자음 단일" 등 처리
+        for (char c = 0x3130; c <= 0x318F; c++) sb.append(c);
+        // 2. 완성형 한글 범위 추가
+        for (char c = 0xAC00; c <= 0xD7A3; c++) sb.append(c);
         param.characters = sb.toString();
 
         BitmapFont font = generator.generateFont(param);

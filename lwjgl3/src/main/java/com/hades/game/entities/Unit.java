@@ -105,11 +105,14 @@ public class Unit implements Disposable {
             animOffset.set(0, 0);
         }
 
-        // 3. [추가] 데미지 텍스트 상태 업데이트
-        for (int i = damageTexts.size - 1; i >= 0; i--) {
+        // 3. iterator에러 -> 인덱스 for문 사용
+        for (int i = 0; i < damageTexts.size; i++) {
             DamageText dt = damageTexts.get(i);
             dt.update(delta);
-            if (dt.timer <= 0) damageTexts.removeIndex(i);
+            if (dt.timer <= 0) {
+                damageTexts.removeIndex(i);
+                i--; // 인덱스 조정
+            }
         }
     }
 
