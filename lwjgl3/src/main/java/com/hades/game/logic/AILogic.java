@@ -7,6 +7,7 @@ import com.hades.game.screens.BattleScreen;
 import com.hades.game.constants.GameConfig;
 import com.hades.game.constants.SkillData;
 
+// AI의 의사결정과 행동을 관리하는 클래스입니다.
 public class AILogic {
 
     public static void processAITurn(Array<Unit> units, String aiTeam, TurnManager turnManager, Object screenObj) {
@@ -21,7 +22,6 @@ public class AILogic {
 
             if (actor != null) {
                 // [AI 보스 전용] 이동 전 고유 권능 장전
-                // AI 보스는 스킬이 1개로 고정되어 있으므로 쿨타임/점수 계산 없이 매 턴 장전합니다.
                 if (actor.unitClass == Unit.UnitClass.HERO) {
                     String bossSkill = actor.stat.skillName();
                     actor.stat.setReservedSkill(bossSkill);
@@ -31,7 +31,8 @@ public class AILogic {
                 System.out.println("[AI Action] " + actor.name + " move to (" + targetX + "," + targetY + ")"); // AI_TEST_LOG
                 actor.setPosition(targetX, targetY);
 
-                // [통합 로직 호출] 이동이 끝난 위치에서 장전된 스킬 발동 + 일반 유닛 자동 공격 수행
+                // [중요 수정] BattleScreen의 통합 처리 메서드 호출
+                // processMoveEnd 내부에서 CombatManager를 통해 자동 공격까지 처리됩니다.
                 if (screenObj instanceof BattleScreen) {
                     ((BattleScreen) screenObj).processMoveEnd(actor);
                 }
@@ -43,13 +44,13 @@ public class AILogic {
             System.err.println("[AI Error] Exception in AI Logic loop"); // AI_TEST_LOG
             e.printStackTrace();
         } finally {
-            // 모든 액션(이동/스킬/자동공격)이 processMoveEnd 내에서 끝난 후 턴을 종료합니다.
+            // 모든 액션이 끝난 후 턴을 종료합니다.
             turnManager.endTurn();
         }
     }
+
     private static String getStrategy() {
         float roll = MathUtils.random(0f, 100f);
-        // 내부 로직 비교를 위해 영문으로 전략명 변경
         if (roll < 70) return "EFFICIENCY";
         if (roll < 90) return "SACRIFICE";
         return "ASSASSIN";
@@ -57,7 +58,6 @@ public class AILogic {
 
     private static Object[] findBestMove(Array<Unit> units, String aiTeam, String strategy) {
         Unit bestActor = null;
-        Unit bestTargetUnit = null;
         int bestX = -1, bestY = -1;
         float maxScore = -999999f;
 
@@ -78,14 +78,13 @@ public class AILogic {
                                 bestActor = actor;
                                 bestX = x;
                                 bestY = y;
-                                bestTargetUnit = enemy;
                             }
                         }
                     }
                 }
             }
         }
-        return new Object[]{bestActor, bestX, bestY, bestTargetUnit};
+        return new Object[]{bestActor, bestX, bestY};
     }
 
     private static float calculateMoveScore(Unit actor, int tx, int ty, Unit target, Array<Unit> units, String strategy) {
@@ -94,7 +93,6 @@ public class AILogic {
         boolean isActorHero = (actor.unitClass == Unit.UnitClass.HERO);
         boolean isTargetHero = (target.unitClass == Unit.UnitClass.HERO);
 
-        // --- [1단계: 공용 판단 로직 및 병사 가중치] ---
         if (!isActorHero) {
             if (dist <= actor.stat.range() && target.currentHp <= actor.stat.atk()) {
                 return 20000;
@@ -102,7 +100,6 @@ public class AILogic {
             score += 3000;
         }
 
-        // 전략 성향에 따른 기본 가중치 (getStrategy 영문명에 맞춤)
         switch (strategy) {
             case "EFFICIENCY":
                 if (dist <= actor.stat.range()) score += 2000;
@@ -116,7 +113,6 @@ public class AILogic {
                 break;
         }
 
-        // --- [2단계: 영웅(보스) 전용 스킬 및 공격 지능] ---
         if (isActorHero) {
             String skillName = actor.stat.skillName();
             SkillData.Skill skill = SkillData.get(skillName);
@@ -146,7 +142,6 @@ public class AILogic {
             }
         }
 
-        // --- [3단계: 위험도 감점] ---
         int danger = 0;
         for (Unit enemy : units) {
             if (enemy != null && enemy.isAlive() && !enemy.team.equals(actor.team)) {
@@ -172,9 +167,4 @@ public class AILogic {
         return count;
     }
 
-    private static void finalizeAction(String aiTeam, Object screenObj) {
-        if (screenObj instanceof BattleScreen) {
-            ((BattleScreen) screenObj).processAutoAttack(aiTeam);
-        }
-    }
 }

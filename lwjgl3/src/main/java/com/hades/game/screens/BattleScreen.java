@@ -24,12 +24,14 @@ import com.hades.game.logic.AILogic;
 import com.hades.game.logic.BoardManager;
 import com.hades.game.logic.IsoUtils;
 import com.hades.game.logic.TurnManager;
+import com.hades.game.logic.CombatManager;
+import com.hades.game.logic.StageGenerator; // 신규 추가
 import com.hades.game.view.GameUI;
 import com.hades.game.view.MapRenderer;
 import com.hades.game.view.UnitRenderer;
 import com.hades.game.view.UI;
 
-// 실제 전투가 이루어지는 메인 스크린 클래스
+// Chess Olympus: HADES vs ZEUS - 메인 전투 화면
 public class BattleScreen extends ScreenAdapter {
     private final HadesGame game;
     private ShapeRenderer shape;
@@ -38,6 +40,7 @@ public class BattleScreen extends ScreenAdapter {
     private Vector2 hoveredGrid = new Vector2(-1, -1);
     private Unit selectedUnit = null;
     private TurnManager turnManager;
+    private CombatManager combatManager;
     private MapRenderer mapRenderer;
     private UnitRenderer unitRenderer;
     private GameUI gameUI;
@@ -98,7 +101,7 @@ public class BattleScreen extends ScreenAdapter {
     private void init() {
         shape = new ShapeRenderer();
         mapRenderer = new MapRenderer(shape, game.batch, tileTop);
-        unitRenderer = new UnitRenderer(game.batch, shape, game.unitFont, playerTeam);
+        unitRenderer = new UnitRenderer(game.batch, shape, game.battleFont, playerTeam);
         gameUI = new GameUI(game);
 
         if (heroStat != null) {
@@ -106,43 +109,22 @@ public class BattleScreen extends ScreenAdapter {
             heroStat.clearReservedSkill();
         }
 
-        units = new Array<>();
         turnManager = new TurnManager();
-        setupBattleUnits();
-    }
+        combatManager = new CombatManager(gameUI, turnManager, playerTeam, this::handleDeath);
 
-    private void setupBattleUnits() {
-        units.clear();
-        units.add(new Unit(heroName, playerTeam, heroStat, heroName, Unit.UnitClass.HERO, 3, 0));
-        units.add(new Unit("기병", playerTeam, UnitData.STAT_KNIGHT, UnitData.IMG_KNIGHT, Unit.UnitClass.KNIGHT, 0, 0));
-        units.add(new Unit("궁병", playerTeam, UnitData.STAT_ARCHER, UnitData.IMG_ARCHER, Unit.UnitClass.ARCHER, 1, 0));
-        units.add(new Unit("방패병", playerTeam, UnitData.STAT_SHIELD, UnitData.IMG_SHIELD, Unit.UnitClass.SHIELD, 2, 0));
-        units.add(new Unit("방패병", playerTeam, UnitData.STAT_SHIELD, UnitData.IMG_SHIELD, Unit.UnitClass.SHIELD, 4, 0));
-        units.add(new Unit("성녀", playerTeam, UnitData.STAT_SAINT, UnitData.IMG_SAINT, Unit.UnitClass.SAINT, 5, 0));
-        units.add(new Unit("전차병", playerTeam, UnitData.STAT_CHARIOT, UnitData.IMG_CHARIOT, Unit.UnitClass.CHARIOT, 6, 0));
-
-        int enemyRow = GameConfig.BOARD_HEIGHT - 1;
-        int bossIdx = Math.min(stageLevel - 1, UnitData.STATS_ZEUS.length - 1);
-        String bossName = UnitData.NAMES_ZEUS[bossIdx];
-
-        units.add(new Unit(bossName, aiTeam, UnitData.STATS_ZEUS[bossIdx], bossName, Unit.UnitClass.HERO, 3, enemyRow));
-        units.add(new Unit("적 궁병", aiTeam, UnitData.STAT_ARCHER, UnitData.IMG_ARCHER, Unit.UnitClass.ARCHER, 0, enemyRow));
-        units.add(new Unit("적 기병", aiTeam, UnitData.STAT_KNIGHT, UnitData.IMG_KNIGHT, Unit.UnitClass.KNIGHT, 1, enemyRow));
-        units.add(new Unit("적 방패병", aiTeam, UnitData.STAT_SHIELD, UnitData.IMG_SHIELD, Unit.UnitClass.SHIELD, 2, enemyRow));
-        units.add(new Unit("적 방패병", aiTeam, UnitData.STAT_SHIELD, UnitData.IMG_SHIELD, Unit.UnitClass.SHIELD, 4, enemyRow));
-        units.add(new Unit("적 전차병", aiTeam, UnitData.STAT_CHARIOT, UnitData.IMG_CHARIOT, Unit.UnitClass.CHARIOT, 5, enemyRow));
-        units.add(new Unit("적 성녀", aiTeam, UnitData.STAT_SAINT, UnitData.IMG_SAINT, Unit.UnitClass.SAINT, 6, enemyRow));
+        // [Clean Up] 유닛 생성 로직을 StageGenerator로 위임
+        units = StageGenerator.create(stageLevel, playerTeam, heroName, heroStat);
     }
 
     @Override
     public void render(float delta) {
+        for (Unit u : units) u.update(delta);
         update(delta);
         cleanupDeadUnits();
 
         Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        // 정밀 마우스 좌표 계산 (ViewPort unproject 적용)
         Vector2 touchPos = new Vector2(Gdx.input.getX(), Gdx.input.getY());
         stage.getViewport().unproject(touchPos);
         float mx = touchPos.x;
@@ -159,18 +141,13 @@ public class BattleScreen extends ScreenAdapter {
 
         if (!gameOver && selectedUnit != null && selectedUnit.team.equals(playerTeam)) {
             String reserved = selectedUnit.stat.getReservedSkill();
-            if (reserved != null) {
-                mapRenderer.drawSkillRange(selectedUnit, SkillData.get(reserved).range);
-            } else {
-                mapRenderer.drawRangeOverlays(selectedUnit);
-            }
+            if (reserved != null) mapRenderer.drawSkillRange(selectedUnit, SkillData.get(reserved).range);
+            else mapRenderer.drawRangeOverlays(selectedUnit);
         }
 
         game.batch.begin();
         for (Unit u : units) if (u.isAlive()) unitRenderer.renderShadow(u, selectedUnit);
         for (Unit u : units) if (u.isAlive()) unitRenderer.renderBody(u, selectedUnit);
-
-        // GameUI 렌더링 시 정밀 좌표 mx, my를 전달하여 툴팁 판정 문제를 해결
         gameUI.render(stageLevel, turnManager.getCurrentTurn(), playerTeam, menuHitbox, selectedUnit, mx, my);
         game.batch.end();
 
@@ -205,8 +182,8 @@ public class BattleScreen extends ScreenAdapter {
 
     private void handleInput() {
         com.hades.game.utils.DebugManager.handleBattleDebug(game, units, aiTeam, this::handleDeath);
-
         if (gameOver) return;
+
         Vector2 touchPos = new Vector2(Gdx.input.getX(), Gdx.input.getY());
         stage.getViewport().unproject(touchPos);
         float mx = touchPos.x;
@@ -223,7 +200,6 @@ public class BattleScreen extends ScreenAdapter {
                 String clickedSkill = gameUI.getClickedSkill(mx, my, selectedUnit);
                 if (clickedSkill != null) {
                     String currentReserved = selectedUnit.stat.getReservedSkill();
-
                     if (clickedSkill.equals(currentReserved)) {
                         selectedUnit.stat.clearReservedSkill();
                         gameUI.addLog(clickedSkill + " 장전 취소", "SYSTEM", playerTeam);
@@ -246,9 +222,7 @@ public class BattleScreen extends ScreenAdapter {
                 int ty = (int) hoveredGrid.y;
                 if (tx >= 0 && ty >= 0 && selectedUnit.team.equals(playerTeam) && BoardManager.canMoveTo(selectedUnit, tx, ty, units)) {
                     selectedUnit.setPosition(tx, ty);
-
                     processMoveEnd(selectedUnit);
-
                     selectedUnit = null;
                     aiBusy = true;
                     turnManager.endTurn();
@@ -270,162 +244,33 @@ public class BattleScreen extends ScreenAdapter {
     public void processMoveEnd(Unit unit) {
         String reserved = unit.stat.getReservedSkill();
 
-        // [1순위] 영웅의 권능 처리 (하데스 or AI 보스)
         if (reserved != null && !reserved.equals("기본 공격")) {
-            if (isAnyTargetInRange(unit, reserved)) {
-                executeActiveSkill(unit, reserved); // 스킬 발동
-                unit.stat.setSkillUsed(reserved, true);
-            } else {
-                // 사거리가 안 닿을 때 (플레이어에게만 알림 전송)
-                if (unit.team.equals(playerTeam)) {
-                    gameUI.addLog("사거리 내 적이 없어 " + reserved + " 취소", "SYSTEM", playerTeam);
-                }
-            }
-            unit.stat.clearReservedSkill(); // 장전 해제
+            executeHeroSkill(unit, reserved);
         }
 
-        // [2순위] 이후 해당 진영 전체 자동 공격 (병사들의 평타 타임)
-        processAutoAttack(unit.team);
+        combatManager.processAutoAttack(units, unit.team);
     }
 
-    // 특정 스킬의 사거리 내에 적이 존재하는지 판별합니다.
-    private boolean isAnyTargetInRange(Unit hero, String skillName) {
+    private void executeHeroSkill(Unit hero, String skillName) {
         SkillData.Skill data = SkillData.get(skillName);
+        boolean hasTarget = false;
+
         for (Unit target : units) {
             if (target.isAlive() && !target.team.equals(hero.team)) {
                 int dist = Math.abs(hero.gridX - target.gridX) + Math.abs(hero.gridY - target.gridY);
-                if (dist <= data.range) return true;
-            }
-        }
-        return false;
-    }
-
-    private void executeActiveSkill(Unit hero, String skillName) {
-        SkillData.Skill data = SkillData.get(skillName);
-        gameUI.addLog("권능 해방!! [" + skillName + "]", hero.team, playerTeam);
-        int damage = (int)(hero.stat.atk() * data.power);
-        for (int i = 0; i < units.size; i++) {
-            Unit target = units.get(i);
-            if (target != null && target.isAlive() && !target.team.equals(hero.team)) {
-                int dist = Math.abs(hero.gridX - target.gridX) + Math.abs(hero.gridY - target.gridY);
                 if (dist <= data.range) {
-                    target.currentHp -= damage;
-                    gameUI.addLog(target.name + "에게 " + damage + "의 피해!", hero.team, playerTeam);
-                    if (target.currentHp <= 0) {
-                        target.currentHp = 0;
-                        target.status = Unit.DEAD;
-                        gameUI.addLog(target.name + " 처치됨!", hero.team, playerTeam);
-                        handleDeath(target);
-                    }
+                    combatManager.performAttack(hero, target);
+                    hasTarget = true;
                     if (!data.isAoE) break;
                 }
             }
         }
-        processAutoHeal(hero.team);
+
+        if (!hasTarget && hero.team.equals(playerTeam)) {
+            gameUI.addLog("사거리 내 적이 없어 " + skillName + " 취소", "SYSTEM", playerTeam);
+        }
+        hero.stat.clearReservedSkill();
     }
-
-    public void processAutoAttack(String team) {
-        for (int i = 0; i < units.size; i++) {
-            Unit attacker = units.get(i);
-            if (attacker != null && attacker.isAlive() && attacker.team.equals(team)) {
-                if (attacker.unitClass == Unit.UnitClass.KNIGHT) {
-                    Array<Unit> targets = BoardManager.findAllTargetsInRange(attacker, units);
-                    for (int j = 0; j < targets.size; j++) performAttack(attacker, targets.get(j));
-                } else {
-                    Unit target = BoardManager.findBestTargetInRange(attacker, units);
-                    if (target != null) performAttack(attacker, target);
-                }
-            }
-        }
-        processAutoHeal(team);
-    }
-
-    private void processAutoHeal(String team) {
-        for (int i = 0; i < units.size; i++) {
-            Unit u = units.get(i);
-            if (u.isAlive() && u.team.equals(team) && u.unitClass == Unit.UnitClass.SAINT) {
-                for (int j = 0; j < units.size; j++) {
-                    Unit ally = units.get(j);
-                    if (ally.isAlive() && ally.team.equals(team) && ally != u) {
-                        int dist = Math.abs(u.gridX - ally.gridX) + Math.abs(u.gridY - ally.gridY);
-                        if (dist == 1 && ally.currentHp < ally.stat.hp()) {
-                            ally.currentHp = Math.min(ally.stat.hp(), ally.currentHp + 15);
-                            gameUI.addLog(u.name + "가 " + ally.name + "를 치료함(+15)", u.team, playerTeam);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    public void performAttack(Unit attacker, Unit target) {
-        // 공격자와 방어자의 생존 여부 및 존재 확인
-        if (attacker == null || target == null || !target.isAlive() || !attacker.isAlive()) return;
-
-        boolean isAttackerTurn = turnManager.isMyTurn(attacker.team);
-        int damage = attacker.getPower(isAttackerTurn); // 기본 능력치 기반 공격력 계산
-        float skillMultiplier = 1.0f;
-        String activeSkillName = null;
-
-        // --- 영웅 유닛 전용 권능/진노 발동 판단 ---
-        if (attacker.unitClass == Unit.UnitClass.HERO) {
-            if (!attacker.team.equals(playerTeam)) {
-                // [AI 보스] 설정된 전용 권능을 매 공격 시 자동으로 사용
-                activeSkillName = attacker.stat.skillName();
-                SkillData.Skill skill = SkillData.get(activeSkillName);
-                skillMultiplier = skill.power;
-
-                gameUI.addLog("[권능] " + attacker.name + ": [" + activeSkillName + "]!", attacker.team, playerTeam);
-            } else {
-                // [플레이어 하데스] UI에서 선택하여 '장전된(Reserved)' 스킬이 있을 때만 발동
-                String reserved = attacker.stat.getReservedSkill();
-                if (reserved != null && !reserved.equals("기본 공격")) {
-                    activeSkillName = reserved;
-                    SkillData.Skill skill = SkillData.get(activeSkillName);
-                    skillMultiplier = skill.power;
-
-                    gameUI.addLog("[권능] " + attacker.name + ": [" + activeSkillName + "]!", attacker.team, playerTeam);
-
-                    // 사용 완료된 스킬 소모 처리 및 쿨타임 관리
-                    attacker.stat.clearReservedSkill();
-                    attacker.stat.setSkillUsed(activeSkillName, true);
-                }
-            }
-        }
-
-        // 최종 데미지 적용 및 로그 출력
-        int finalDamage = (int)(damage * skillMultiplier);
-        target.currentHp -= finalDamage;
-
-        if (activeSkillName != null) {
-            gameUI.addLog(attacker.name + " -> " + target.name + " [" + activeSkillName + "] " + finalDamage + " 데미지", attacker.team, playerTeam);
-        } else {
-            gameUI.addLog(attacker.name + " -> " + target.name + " " + finalDamage + " 데미지", attacker.team, playerTeam);
-        }
-
-        // --- 처치 판정 및 반격 로직 ---
-        if (target.currentHp <= 0) {
-            target.currentHp = 0;
-            gameUI.addLog(target.name + " 처치됨!", attacker.team, playerTeam);
-            handleDeath(target);
-            return;
-        }
-
-        // 방어자의 사거리 내에 공격자가 있다면 즉시 반격 실행
-        if (target.canReach(attacker)) {
-            int counterDamage = target.getPower(turnManager.isMyTurn(target.team));
-            attacker.currentHp -= counterDamage;
-            gameUI.addLog(target.name + "의 반격! " + counterDamage + " 데미지", target.team, playerTeam);
-
-            if (attacker.currentHp <= 0) {
-                attacker.currentHp = 0;
-                gameUI.addLog(attacker.name + " 처치됨!", target.team, playerTeam);
-                handleDeath(attacker);
-            }
-        }
-    }
-
-
 
     private void handleDeath(Unit target) {
         target.status = Unit.DEAD;
@@ -436,9 +281,7 @@ public class BattleScreen extends ScreenAdapter {
             gameOver = true;
             if (stageLevel == 7) {
                 game.setScreen(new com.hades.game.screens.cutscene.BaseCutsceneScreen(
-                    game,
-                    com.hades.game.screens.cutscene.CutsceneManager.getStageData(8),
-                    new EndingScreen(game)
+                    game, com.hades.game.screens.cutscene.CutsceneManager.getStageData(8), new EndingScreen(game)
                 ));
             } else {
                 gameUI.addLog("승리! 적의 수장을 물리쳤습니다.");

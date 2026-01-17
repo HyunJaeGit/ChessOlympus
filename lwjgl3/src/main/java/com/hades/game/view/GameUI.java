@@ -3,6 +3,8 @@ package com.hades.game.view;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.NinePatch;
+import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Array;
@@ -15,7 +17,8 @@ import com.hades.game.entities.Unit;
 // 게임의 모든 UI(상단 정보, 로그, 하단 카드, 우측 스킬)를 렌더링하는 클래스입니다.
 public class GameUI implements Disposable {
     private final HadesGame game;
-    private Texture logInfoBg;
+    private Texture logInfoBgTex; // NinePatch용 텍스처
+    private NinePatch logPatch;    // 테두리 보호를 위한 나인패치
     private Texture stageInfoBg;
     private Texture timerBoxBg;
 
@@ -30,12 +33,24 @@ public class GameUI implements Disposable {
     }
 
     private Array<LogEntry> battleLogs;
-    private static final int MAX_LOGS = 4; // 표시할 최대 로그 줄 수
+    private static final int MAX_LOGS = 10; // 확장 시 최대 표시 줄 수
 
-    // --- [미세조정: 우측 스킬 목록 레이아웃] ---
-    private final float SKILL_X = GameConfig.VIRTUAL_WIDTH - 280; // 스킬 목록 시작 X 좌표
-    private final float SKILL_Y = 500;                            // 첫 번째 스킬 항목의 Y 좌표
-    private final float SKILL_H = 50;                             // 스킬 항목 간의 세로 간격
+    // --- [로그창 동적 레이아웃 설정] ---
+    private final float LOG_AREA_X = 400;
+    private final float LOG_AREA_Y = 10;
+    private final float LOG_AREA_W = 800;
+    private final float MIN_LOG_H = 150;  // 평상시 높이
+    private final float MAX_LOG_H = 400;  // 마우스 호버 시 확장 높이
+    private float currentLogHeight = MIN_LOG_H; // 현재 실시간 높이 (애니메이션용)
+    private final float LERP_SPEED = 0.15f;    // 애니메이션 부드러움 정도
+    private final float LOG_LINE_H = 25;       // 로그 줄 간격
+
+    // 마우스 감지 영역 (기본 크기 기준)
+    private final Rectangle logHitbox = new Rectangle(LOG_AREA_X, LOG_AREA_Y, LOG_AREA_W, MIN_LOG_H);
+
+    private final float SKILL_X = GameConfig.VIRTUAL_WIDTH - 280;
+    private final float SKILL_Y = 500;
+    private final float SKILL_H = 50;
 
     public GameUI(HadesGame game) {
         this.game = game;
@@ -45,12 +60,15 @@ public class GameUI implements Disposable {
 
     private void loadResources() {
         String path = "images/background/";
-        logInfoBg = new Texture(Gdx.files.internal(path + "log_info.png"));
+        // 신규 로그 이미지 로드 및 NinePatch 설정 (테두리 30px 보호)
+        logInfoBgTex = new Texture(Gdx.files.internal(path + "log_info.png"));
+        logPatch = new NinePatch(logInfoBgTex, 30, 30, 30, 30);
+
         stageInfoBg = new Texture(Gdx.files.internal(path + "stage_info.png"));
         timerBoxBg = new Texture(Gdx.files.internal(path + "timer_box.png"));
     }
 
-    // 시스템 메시지용 (골드)
+    // 시스템 메시지용 (골드 색상)
     public void addLog(String message) {
         battleLogs.insert(0, new LogEntry(message, Color.GOLD));
         if (battleLogs.size > MAX_LOGS) battleLogs.removeIndex(battleLogs.size - 1);
@@ -60,14 +78,14 @@ public class GameUI implements Disposable {
     public void addLog(String message, String unitTeam, String playerTeam) {
         Color logColor = Color.LIGHT_GRAY;
         if (unitTeam != null && !unitTeam.equals(playerTeam)) {
-            logColor = Color.FIREBRICK; // 적군 관련 로그는 붉은색
+            logColor = Color.FIREBRICK; // 적군 로그는 붉은색
         }
         battleLogs.insert(0, new LogEntry(message, logColor));
         if (battleLogs.size > MAX_LOGS) battleLogs.removeIndex(battleLogs.size - 1);
     }
 
     public void render(int stageLevel, String currentTurn, String playerTeam, Rectangle menuHitbox, Unit selectedUnit, float mx, float my) {
-        // 1. [상단 UI] 스테이지 레벨 및 현재 턴 정보
+        // 1. [상단 UI] 스테이지 및 턴 정보
         game.batch.draw(stageInfoBg, 20, GameConfig.VIRTUAL_HEIGHT - 80, 200, 60);
         game.unitFont2.setColor(Color.WHITE);
         game.unitFont2.draw(game.batch, "STAGE " + stageLevel, 60, GameConfig.VIRTUAL_HEIGHT - 40);
@@ -75,41 +93,62 @@ public class GameUI implements Disposable {
         game.unitFont2.setColor(currentTurn.equals(playerTeam) ? Color.LIME : Color.RED);
         game.unitFont2.draw(game.batch, currentTurn.equals(playerTeam) ? "YOUR TURN" : "ENEMY TURN", 40, GameConfig.VIRTUAL_HEIGHT - 110);
 
-        // 2. [우측 상단 UI] 설정/전체화면 메뉴 버튼
+        // 2. [우측 상단 UI] 메뉴 버튼
         game.batch.draw(timerBoxBg, menuHitbox.x, menuHitbox.y + 10, menuHitbox.width - 10, menuHitbox.height - 14);
         String mode = Gdx.graphics.isFullscreen() ? "WINDOW" : "FULLSCREEN";
         game.unitFont3.draw(game.batch, mode, menuHitbox.x, menuHitbox.y + 40, menuHitbox.width, Align.center, false);
 
-        // 3. [하단 중앙 UI] 실시간 전투 로그 출력
-        game.batch.draw(logInfoBg, 400, 10, 800, 240);
-        for (int i = 0; i < battleLogs.size; i++) {
-            LogEntry entry = battleLogs.get(i);
-            game.unitFont3.setColor(entry.color);
-            game.unitFont3.draw(game.batch, entry.text, 550, 170 - (i * 30)); // 30 간격으로 위에서 아래로 출력
-        }
-        game.unitFont3.setColor(Color.WHITE);
+        // 3. [하단 중앙 UI] 배경 자동 확장 전투 로그
+        renderExpandableLog(mx, my);
 
-        // 4. [하단/우측 유닛 UI] 선택된 유닛이 존재하고 살아있을 때만 렌더링 (사망 시 에러 방지 핵심)
+        // 4. [하단/우측 유닛 UI] 선택된 유닛 정보
         if (selectedUnit != null && selectedUnit.isAlive()) {
-            renderUnitDetails(selectedUnit); // 좌측 하단 유닛 카드(스탯) 표시
-
-            // 영웅 유닛(HERO)이라면 진영에 관계없이 보유한 스킬 목록 표시
+            renderUnitDetails(selectedUnit);
             if (selectedUnit.unitClass == Unit.UnitClass.HERO) {
                 renderHeroSkills(selectedUnit, mx, my, playerTeam);
             }
         }
     }
 
+    // 로그창 자동 확장 렌더링 로직
+    private void renderExpandableLog(float mx, float my) {
+        // 호버 상태에 따른 목표 높이 설정
+        boolean isHovered = logHitbox.contains(mx, my);
+        float targetH = isHovered ? MAX_LOG_H : MIN_LOG_H;
+        int displayCount = isHovered ? 10 : 4;
+
+        // 높이 애니메이션 (부드럽게 목표치에 도달)
+        currentLogHeight = MathUtils.lerp(currentLogHeight, targetH, LERP_SPEED);
+
+        // NinePatch 배경 그리기 (테두리 뭉개짐 방지)
+        logPatch.draw(game.batch, LOG_AREA_X, LOG_AREA_Y, LOG_AREA_W, currentLogHeight);
+
+        // 로그 텍스트 출력 (최신 로그가 하단에 위치)
+        for (int i = 0; i < Math.min(battleLogs.size, displayCount); i++) {
+            LogEntry entry = battleLogs.get(i);
+
+            // i=0(최신)이 아래에 오도록 텍스트 로그 Y좌표 계산
+            float logY = LOG_AREA_Y + 65 + (i * LOG_LINE_H);
+
+            // 박스 현재 높이 내부에 있을 때만 그리기 (클리핑 효과)
+            if (logY < LOG_AREA_Y + currentLogHeight - 30) {
+                game.unitFont3.setColor(entry.color.r, entry.color.g, entry.color.b, isHovered ? 1.0f : 0.8f);
+                game.unitFont3.draw(game.batch, entry.text, LOG_AREA_X + 55, logY);    // 로그 텍스트 x좌표 계산
+            }
+        }
+        game.unitFont3.setColor(Color.WHITE);
+    }
+
+    // 영웅 유닛의 스킬 목록 표시
     private void renderHeroSkills(Unit unit, float mx, float my, String playerTeam) {
         Array<String> allSkills = unit.stat.getLearnedSkills();
         Array<String> visibleSkills = new Array<>();
         for (String s : allSkills) {
-            if (!s.equals("기본 공격")) visibleSkills.add(s); // 평타를 제외한 권능들만 추출
+            if (!s.equals("기본 공격")) visibleSkills.add(s);
         }
 
         if (visibleSkills.size == 0) return;
 
-        // 진영별 제목 연출 (우리팀: 골드/보유 권능, 적팀: 적색/적의 권능)
         boolean isPlayerUnit = unit.team.equals(playerTeam);
         game.unitFont2.setColor(isPlayerUnit ? Color.GOLD : Color.FIREBRICK);
         game.unitFont2.draw(game.batch, isPlayerUnit ? "[ 보유 권능 ]" : "[ 적의 권능 ]", SKILL_X, SKILL_Y + 50);
@@ -120,74 +159,69 @@ public class GameUI implements Disposable {
         for (int i = 0; i < visibleSkills.size; i++) {
             String skillName = visibleSkills.get(i);
             float y = SKILL_Y - (i * SKILL_H);
-            Rectangle rect = new Rectangle(SKILL_X - 20, y - 35, 250, 45); // 클릭 및 마우스 오버 판정 영역
+            Rectangle rect = new Rectangle(SKILL_X - 20, y - 35, 250, 45);
 
             game.batch.draw(timerBoxBg, rect.x, rect.y, rect.width, rect.height);
 
-            // 스킬 상태별 텍스트 색상 분기
             if (!isPlayerUnit) {
-                game.unitFont3.setColor(Color.WHITE); // 적군은 상태 표시 불필요
+                game.unitFont3.setColor(Color.WHITE);
             } else {
                 if (!unit.stat.isSkillReady(skillName)) {
-                    game.unitFont3.setColor(Color.GRAY);   // 사용 완료된 스킬
+                    game.unitFont3.setColor(Color.GRAY);
                 } else if (skillName.equals(reserved)) {
-                    game.unitFont3.setColor(Color.YELLOW); // 현재 장전(선택)된 스킬
+                    game.unitFont3.setColor(Color.YELLOW);
                 } else {
-                    game.unitFont3.setColor(Color.WHITE);  // 사용 가능한 스킬
+                    game.unitFont3.setColor(Color.WHITE);
                 }
             }
 
             game.unitFont3.draw(game.batch, (i + 1) + ". " + skillName, SKILL_X + 10, y - 5);
 
-            // 마우스 오버 시 툴팁 대상 지정
             if (rect.contains(mx, my)) {
                 tooltipToDraw = skillName;
             }
         }
 
         if (tooltipToDraw != null) {
-            renderSkillTooltip(tooltipToDraw, mx, my); // 툴팁은 가장 마지막에 그려서 겹침 방지
+            renderSkillTooltip(tooltipToDraw, mx, my);
         }
         game.unitFont3.setColor(Color.WHITE);
     }
 
+    // 스킬 마우스 호버 시 툴팁 표시
     private void renderSkillTooltip(String skillName, float mx, float my) {
         SkillData.Skill data = SkillData.get(skillName);
         if (data == null) return;
 
-        // --- [미세조정: 툴팁 박스 설정] ---
-        float tw = 400; // 박스 너비
-        float th = 220; // 박스 높이
-        float tx = mx - tw - 20; // 마우스 왼쪽 배치
-        float ty = my - 100;     // 마우스 높이 기준 중앙 정렬
+        float tw = 400;
+        float th = 220;
+        float tx = mx - tw - 20;
+        float ty = my - 100;
 
-        if (tx < 10) tx = mx + 20; // 화면 왼쪽 경계 침범 시 오른쪽으로 반전
+        if (tx < 10) tx = mx + 20;
 
-        game.batch.draw(logInfoBg, tx, ty, tw, th);
+        // 툴팁 배경도 동일한 UI 스타일 적용
+        game.batch.draw(logInfoBgTex, tx, ty, tw, th);
 
-        // --- [미세조정: 툴팁 내부 텍스트 위치] ---
-        float marginLeft = 60;   // 왼쪽 장식 여백
-        float marginTop = 55;    // 상단 장식 여백
-        float lineSpacing = 35;  // 줄 간격
+        float marginLeft = 60;
+        float marginTop = 55;
+        float lineSpacing = 35;
         float contentWidth = tw - (marginLeft * 2);
         float currentY = ty + th - marginTop;
 
-        // 1. 스킬 이름
         game.unitFont3.setColor(Color.CYAN);
         game.unitFont3.draw(game.batch, "[" + data.name + "]", tx + marginLeft, currentY);
 
-        // 2. 수치 정보 (위력/사거리)
         currentY -= lineSpacing;
         game.unitFont3.setColor(Color.ORANGE);
         game.unitFont3.draw(game.batch, "위력: " + (int)(data.power * 100) + "% | 사거리: " + data.range, tx + marginLeft, currentY);
 
-        // 3. 상세 설명 (자동 줄바꿈 적용)
         currentY -= lineSpacing;
         game.unitFont3.setColor(Color.WHITE);
         game.unitFont3.draw(game.batch, data.description, tx + marginLeft, currentY, contentWidth, Align.left, true);
     }
 
-    // 클릭 좌표를 기반으로 어떤 스킬이 눌렸는지 확인 (BattleScreen에서 호출)
+    // 클릭 시 스킬 선택 여부 반환
     public String getClickedSkill(float mx, float my, Unit unit) {
         if (unit == null) return null;
         Array<String> allSkills = unit.stat.getLearnedSkills();
@@ -207,11 +241,10 @@ public class GameUI implements Disposable {
         return null;
     }
 
-    // 좌측 하단 유닛 상태 카드 렌더링
+    // 좌측 하단 유닛 상태 카드 정보 표시
     private void renderUnitDetails(Unit unit) {
         if (unit.portrait != null) game.batch.draw(unit.portrait, 10, 20, 300, 420);
 
-        // 카드 텍스트 위치 (X: 55, 200 / Y: 105, 125, 145 부근)
         game.cardFont.setColor(Color.WHITE);
         game.cardFont.draw(game.batch, "HP : " + unit.currentHp + " / " + unit.stat.hp(), 55, 145);
         game.cardFont.draw(game.batch, "ATK: " + unit.stat.atk(), 55, 125);
@@ -223,8 +256,8 @@ public class GameUI implements Disposable {
 
     @Override
     public void dispose() {
-        logInfoBg.dispose();
-        stageInfoBg.dispose();
-        timerBoxBg.dispose();
+        if (logInfoBgTex != null) logInfoBgTex.dispose();
+        if (stageInfoBg != null) stageInfoBg.dispose();
+        if (timerBoxBg != null) timerBoxBg.dispose();
     }
 }
