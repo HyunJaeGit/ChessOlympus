@@ -106,13 +106,19 @@ public class MenuScreen extends ScreenAdapter {
         });
         menuGroup.add(screenBtn).padBottom(15).row();
 
-        // --- 게임 시작 버튼 행 ---
+        // --- 게임 시작 버튼 ---
         Label startBtn = new Label("GAME START", new Label.LabelStyle(game.mainFont, COLOR_MAIN));
         UI.addHoverEffect(game, startBtn, COLOR_MAIN, COLOR_GOLD);
         startBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
                 game.playClick(1.0f);
+
+                // 게임 시작 시 메뉴 배경음악을 정지하여 음악 중첩 방지
+                if (game.menuBgm != null) {
+                    game.menuBgm.stop();
+                }
+
                 game.setScreen(new BaseCutsceneScreen(
                     game,
                     CutsceneManager.getIntroData(),
@@ -122,7 +128,7 @@ public class MenuScreen extends ScreenAdapter {
         });
         menuGroup.add(startBtn).padBottom(15).row();
 
-        // --- 종료 버튼 행 ---
+        // --- 종료 버튼 ---
         Label exitBtn = new Label("EXIT GAME", new Label.LabelStyle(game.mainFont, COLOR_SUB));
         UI.addHoverEffect(game, exitBtn, COLOR_SUB, Color.FIREBRICK);
         exitBtn.addListener(new ClickListener() {
@@ -164,7 +170,6 @@ public class MenuScreen extends ScreenAdapter {
         volStatusLabel.setText((volumeStep * 10) + "%");
     }
 
-    // 마우스 오버 기능 : UI.addHoverEffect()를 호출하여 사용
     @Override
     public void render(float delta) {
         Gdx.gl.glClearColor(0.05f, 0.05f, 0.1f, 1);

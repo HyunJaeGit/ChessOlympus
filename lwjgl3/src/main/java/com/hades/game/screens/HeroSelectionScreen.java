@@ -51,7 +51,6 @@ public class HeroSelectionScreen extends ScreenAdapter {
         initUI();
     }
 
-    // 팝업 가독성을 위해 어두운 반투명 배경을 생성합니다.
     private void createDialogBackground() {
         Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
         pixmap.setColor(new Color(0, 0, 0, 0.9f));
@@ -65,11 +64,10 @@ public class HeroSelectionScreen extends ScreenAdapter {
         Gdx.input.setInputProcessor(stage);
     }
 
-    // 영웅 선택 리스트 UI를 초기화합니다.
     private void initUI() {
-        Table root = new Table();   // 테이블 생성
-        root.setFillParent(true);   // 테이블 크기를 부모(stage)의 크기에 맞춤
-        stage.addActor(root);       // 생성한 테이블을 그리고 감지
+        Table root = new Table();
+        root.setFillParent(true);
+        stage.addActor(root);
 
         Label title = new Label("CHOOSE YOUR HERO", new Label.LabelStyle(game.subtitleFont, Color.GOLD));
         root.add(title).padBottom(50).row();
@@ -82,24 +80,19 @@ public class HeroSelectionScreen extends ScreenAdapter {
             final String name = names[i];
             final UnitData.Stat stat = stats[i];
 
-            // 1. 라벨 생성
             final Label nameLabel = new Label(name, new Label.LabelStyle(game.mainFont, Color.LIGHT_GRAY));
             nameLabel.setTouchable(Touchable.disabled);
 
-            UI.addHoverEffect(game, nameLabel, Color.LIGHT_GRAY, Color.WHITE);
-
-            // 2. 라벨을 담을 테이블 생성
             Table rowTable = new Table();
             rowTable.setTouchable(Touchable.enabled);
-            rowTable.add(nameLabel).center().pad(10, 100, 10, 100); // 라벨 정렬(중앙, 여백)
+            rowTable.add(nameLabel).center().pad(10, 100, 10, 100);
 
-            // 3. addHoverEffect 메서드 적용 (rowTable 호버시 nameLabel 색상 변경)
             UI.addHoverEffect(game, rowTable, nameLabel, Color.LIGHT_GRAY, Color.WHITE);
 
-            // 4. 테이블 클릭 시 팝업을 띄우는 리스너 추가
             rowTable.addListener(new ClickListener() {
                 @Override
                 public void clicked(InputEvent event, float x, float y) {
+                    game.playClick();
                     showGridPopup(name, stat);
                 }
             });
@@ -109,19 +102,21 @@ public class HeroSelectionScreen extends ScreenAdapter {
         root.add(listTable).center();
     }
 
-    // 좌측 이미지, 우측 스토리 구조의 상세 정보 팝업을 출력합니다.
     private void showGridPopup(final String name, final UnitData.Stat stat) {
         Window.WindowStyle windowStyle = new Window.WindowStyle(game.detailFont2, Color.WHITE, dialogBackground);
-        final Dialog dialog = new Dialog("", windowStyle);
+        final Dialog dialog = new Dialog("", windowStyle) {
+            @Override
+            protected void result(Object object) {
+                // 기본 result 동작을 막아 버튼 클릭 이벤트가 커스텀 리스너에서 처리되게 함
+            }
+        };
 
         Table mainTable = dialog.getContentTable();
         mainTable.pad(30);
 
-        SkillData.Skill skill = SkillData.get(stat.skillName());
-        // HeroStoryManager에서 해당 유닛의 칭호와 설명 데이터를 가져옵니다.
         HeroStoryManager.HeroStory story = HeroStoryManager.get(name);
 
-        // --- 좌측 섹션: 일러스트 ---
+        // 좌측 섹션: 일러스트
         Table leftSection = new Table();
         String path = "images/character/" + name + ".png";
         if (Gdx.files.internal(path).exists()) {
@@ -131,44 +126,66 @@ public class HeroSelectionScreen extends ScreenAdapter {
             heroImg.setScaling(Scaling.fit);
             leftSection.add(heroImg).size(400, 550);
         }
-        mainTable.add(leftSection).padRight(40);
+        mainTable.add(leftSection).padRight(40).top();
 
-        // --- 우측 섹션: 정보 및 스토리 ---
+        // 우측 섹션: 정보 및 스토리
         Table rightSection = new Table();
-        rightSection.align(Align.top);
-        rightSection.pad(20);
+        rightSection.align(Align.topLeft);
 
         Label nameLabel = new Label(name, new Label.LabelStyle(game.subtitleFont, Color.WHITE));
-        rightSection.add(nameLabel).padBottom(5).row();
+        rightSection.add(nameLabel).align(Align.left).padBottom(5).row();
 
-        // 매니저에서 가져온 칭호(title) 적용
         Label subTitleLabel = new Label(story.title(), new Label.LabelStyle(game.unitFont2, Color.LIME));
-        rightSection.add(subTitleLabel).padBottom(30).row();
+        rightSection.add(subTitleLabel).align(Align.left).padBottom(20).row();
 
-        // 스테이지 1에서는 스킬이 봉인된 것으로 표시 (기획 반영)
-        String skillText = "고유 권능: (봉인됨)";
-        Color skillColor = Color.GRAY;
+        // 스테이지 1 권능 봉인 표시
+        Label skillTitle = new Label("고유 권능: (봉인됨)", new Label.LabelStyle(game.unitFont2, Color.GRAY));
+        rightSection.add(skillTitle).align(Align.left).padBottom(15).row();
 
-        // stageLevel 변수가 이 클래스에 선언되어 있다고 가정하거나, 1단계면 무조건 봉인
-        // 만약 stageLevel > 1 이라면 skill.name을 보여주는 로직으로 확장 가능합니다.
-        Label skillTitle = new Label(skillText, new Label.LabelStyle(game.unitFont2, skillColor));
-        rightSection.add(skillTitle).padBottom(20).row();
-
-        // 매니저에서 가져온 상세 스토리(description) 적용
+        // 상세 스토리
         Label storyLabel = new Label(story.description(), new Label.LabelStyle(game.detailFont, Color.LIGHT_GRAY));
         storyLabel.setWrap(true);
         storyLabel.setAlignment(Align.left);
-        rightSection.add(storyLabel).width(450).padBottom(40).row();
+        rightSection.add(storyLabel).width(450).padBottom(30).row();
 
-        // --- 버튼 영역 ---
+        // 기본 스탯 정보 테이블
+        Table statTable = new Table();
+        Label.LabelStyle statStyle = new Label.LabelStyle(game.unitFont3, Color.WHITE);
+
+        statTable.add(new Label("체력(HP): " + stat.hp(), statStyle)).padRight(20);
+        statTable.add(new Label("공격(ATK): " + stat.atk(), statStyle)).padRight(20);
+        statTable.add(new Label("이동(MOV): " + stat.move(), statStyle)).row();
+
+        statTable.add(new Label("사거리: " + stat.range(), statStyle)).padTop(10).padRight(20);
+        statTable.add(new Label("반격력: " + stat.counterAtk(), statStyle)).padTop(10);
+
+        rightSection.add(statTable).align(Align.left).padBottom(40).row();
+
+        // 버튼 영역 (감지 영역 확장을 위해 Table 활용)
         Table btnTable = new Table();
 
-        final Label startBtn = new Label("전투 시작", new Label.LabelStyle(game.detailFont, Color.GOLD));
-        startBtn.addListener(new ClickListener() {
+        // 1. 전투 시작 버튼 컨테이너 생성
+        Table startBtnCont = new Table();
+        startBtnCont.setTouchable(Touchable.enabled); // 테이블이 입력을 받도록 설정
+        final Label startBtnLabel = new Label("전투 시작", new Label.LabelStyle(game.detailFont, Color.RED));
+        startBtnCont.add(startBtnLabel).pad(15, 30, 15, 30); // 여백을 주어 마우스 감지 범위를 넓힘
+
+        // 2. 닫기 버튼 컨테이너 생성
+        Table closeBtnCont = new Table();
+        closeBtnCont.setTouchable(Touchable.enabled);
+        final Label closeBtnLabel = new Label("닫기", new Label.LabelStyle(game.detailFont, Color.WHITE));
+        closeBtnCont.add(closeBtnLabel).pad(15, 30, 15, 30);
+
+        // UI.java의 오버로딩 메서드 사용: 컨테이너(Table)가 마우스를 감지하고, 라벨(Label) 색상을 바꿉니다.
+        UI.addHoverEffect(game, startBtnCont, startBtnLabel, Color.RED, Color.WHITE);
+        UI.addHoverEffect(game, closeBtnCont, closeBtnLabel, Color.WHITE, Color.GRAY);
+
+        // 클릭 리스너도 컨테이너
+        startBtnCont.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
+                game.playClick();
                 if (backgroundMusic != null) backgroundMusic.stop();
-                // 컷씬 화면으로 먼저 전환 후 전투로 이동 (기존 로직 유지하며 목적지 설정)
                 game.setScreen(new com.hades.game.screens.cutscene.BaseCutsceneScreen(
                     game,
                     com.hades.game.screens.cutscene.CutsceneManager.getStage1Data(),
@@ -178,21 +195,20 @@ public class HeroSelectionScreen extends ScreenAdapter {
             }
         });
 
-        final Label closeBtn = new Label("닫기", new Label.LabelStyle(game.detailFont, Color.WHITE));
-        closeBtn.addListener(new ClickListener() {
+        closeBtnCont.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
+                game.playClick();
                 dialog.hide();
             }
         });
 
-        UI.addHoverEffect(game, startBtn, Color.GOLD, Color.WHITE);
-        UI.addHoverEffect(game, closeBtn, Color.WHITE, Color.LIGHT_GRAY);
+        // 버튼 레이아웃 배치
+        btnTable.add(startBtnCont).padRight(30);
+        btnTable.add(closeBtnCont);
 
-        btnTable.add(startBtn).padRight(40);
-        btnTable.add(closeBtn);
+        // 버튼 테이블을 우측 섹션 하단에 배치
         rightSection.add(btnTable).expandY().bottom().right();
-
         mainTable.add(rightSection).expandY().fillY();
 
         dialog.show(stage);
@@ -221,7 +237,6 @@ public class HeroSelectionScreen extends ScreenAdapter {
     public void dispose() {
         stage.dispose();
         backgroundTexture.dispose();
-        if (backgroundMusic != null) backgroundMusic.dispose();
         if(dialogBackground != null) dialogBackground.getRegion().getTexture().dispose();
     }
 }

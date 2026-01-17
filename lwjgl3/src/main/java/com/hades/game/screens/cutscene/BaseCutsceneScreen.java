@@ -16,11 +16,12 @@ import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.hades.game.HadesGame;
 import com.hades.game.constants.GameConfig;
 
+// 게임의 서사를 보여주는 컷씬 화면을 담당하는 클래스입니다.
 public class BaseCutsceneScreen extends ScreenAdapter {
     private final HadesGame game;
     private final Stage stage;
     private final Screen nextScreen;
-    private final CutsceneData data; // record 타입 참조
+    private final CutsceneData data;
 
     private Image displayImage;
     private Label storyLabel;
@@ -31,7 +32,7 @@ public class BaseCutsceneScreen extends ScreenAdapter {
     private String currentDisplayText = "";
     private int wordIndex = 0;
     private float timeCount = 0;
-    private final float wordSpeed = 0.3f; // 타이핑 속도 조정
+    private final float wordSpeed = 0.15f; // 타이핑 속도 설정
 
     public BaseCutsceneScreen(HadesGame game, CutsceneData data, Screen nextScreen) {
         this.game = game;
@@ -39,7 +40,7 @@ public class BaseCutsceneScreen extends ScreenAdapter {
         this.nextScreen = nextScreen;
         this.stage = new Stage(new FitViewport(GameConfig.VIRTUAL_WIDTH, GameConfig.VIRTUAL_HEIGHT));
 
-        // record의 imagePaths() 메서드로 접근
+        // 데이터에 정의된 이미지 경로들을 순차적으로 로드합니다.
         this.textures = new Texture[data.imagePaths().length];
         for (int i = 0; i < data.imagePaths().length; i++) {
             this.textures[i] = new Texture(Gdx.files.internal(data.imagePaths()[i]));
@@ -50,16 +51,17 @@ public class BaseCutsceneScreen extends ScreenAdapter {
     }
 
     private void initUI() {
+        // 배경 이미지 설정 (이미지 배경을 어둡게 처리하여 텍스트 가독성 확보)
         displayImage = new Image(textures[0]);
         displayImage.setFillParent(true);
-        // 배경 이미지를 약간 어둡게 하여 글자가 잘 보이게 합니다.
-        displayImage.setColor(0.5f, 0.5f, 0.5f, 1f);
+        displayImage.setColor(0.6f, 0.6f, 0.6f, 1f);
         stage.addActor(displayImage);
 
         Table root = new Table();
         root.setFillParent(true);
         stage.addActor(root);
 
+        // 하단 대사창 레이블 설정
         Label.LabelStyle style = new Label.LabelStyle(game.detailFont2, Color.WHITE);
         storyLabel = new Label("", style);
         storyLabel.setAlignment(Align.center);
@@ -69,13 +71,13 @@ public class BaseCutsceneScreen extends ScreenAdapter {
     }
 
     private void updateScene() {
-        // record의 scripts() 메서드로 접근
+        // 현재 인덱스에 맞는 대사와 이미지를 준비합니다.
         if (currentSceneIndex < data.scripts().length) {
-            // 이미지가 여러 장일 경우에 대비한 로직 (현재는 1장)
             if (currentSceneIndex < textures.length) {
                 displayImage.setDrawable(new TextureRegionDrawable(textures[currentSceneIndex]));
             }
 
+            // 문장을 단어 단위로 분리하여 타이핑 효과 준비
             currentWords = data.scripts()[currentSceneIndex].split(" ");
             currentDisplayText = "";
             wordIndex = 0;
@@ -89,7 +91,7 @@ public class BaseCutsceneScreen extends ScreenAdapter {
         Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        // 타이핑 로직
+        // 한 단어씩 나타나는 타이핑 로직
         if (currentWords != null && wordIndex < currentWords.length) {
             timeCount += delta;
             if (timeCount >= wordSpeed) {
@@ -100,19 +102,20 @@ public class BaseCutsceneScreen extends ScreenAdapter {
             }
         }
 
+        // 터치/클릭 입력 처리
         if (Gdx.input.justTouched()) {
             game.playClick();
-            // 아직 타이핑 중이라면 전체 문장을 바로 보여줌
             if (currentWords != null && wordIndex < currentWords.length) {
+                // 아직 글자가 나오는 중이라면 즉시 전체 문장 표시
                 wordIndex = currentWords.length;
                 storyLabel.setText(data.scripts()[currentSceneIndex]);
             } else {
-                // 문장이 끝났다면 다음 장면으로
+                // 문장이 완성된 상태라면 다음 장면으로 전환
                 currentSceneIndex++;
                 if (currentSceneIndex < data.scripts().length) {
                     updateScene();
                 } else {
-                    // 모든 장면 종료 시 다음 화면으로 전환
+                    // 모든 컷씬이 끝났으므로 다음 화면(주로 전투)으로 이동
                     game.setScreen(nextScreen);
                 }
             }
@@ -123,10 +126,28 @@ public class BaseCutsceneScreen extends ScreenAdapter {
     }
 
     @Override
-    public void show() { Gdx.input.setInputProcessor(stage); }
+    public void show() {
+        Gdx.input.setInputProcessor(stage);
+
+        // 컷씬 데이터에 지정된 BGM 재생
+        if (data.bgmPath() != null) {
+            // 현재 재생 중인 메뉴 음악 등이 있다면 정지 및 제거
+            if (game.currentBgm != null) {
+                game.currentBgm.stop();
+                game.currentBgm.dispose();
+            }
+            // 새로운 스테이지 배경음악 로드
+            game.currentBgm = Gdx.audio.newMusic(Gdx.files.internal(data.bgmPath()));
+            game.currentBgm.setLooping(true);
+            game.currentBgm.setVolume(game.globalVolume); // 메인 메뉴에서 설정한 볼륨 적용
+            game.currentBgm.play();
+        }
+    }
 
     @Override
-    public void hide() { Gdx.input.setInputProcessor(null); }
+    public void hide() {
+        Gdx.input.setInputProcessor(null);
+    }
 
     @Override
     public void resize(int width, int height) {
@@ -136,6 +157,9 @@ public class BaseCutsceneScreen extends ScreenAdapter {
     @Override
     public void dispose() {
         stage.dispose();
-        for (Texture tex : textures) if (tex != null) tex.dispose();
+        for (Texture tex : textures) {
+            if (tex != null) tex.dispose();
+        }
+        // 배경음악은 다음 화면에서도 계속 재생되어야 하므로 여기서 dispose하지 않습니다.
     }
 }
