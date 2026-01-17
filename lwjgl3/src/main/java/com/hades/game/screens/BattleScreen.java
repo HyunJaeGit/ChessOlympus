@@ -29,7 +29,7 @@ import com.hades.game.view.MapRenderer;
 import com.hades.game.view.UnitRenderer;
 import com.hades.game.view.UI;
 
-// 실제 전투가 이루어지는 메인 스크린 클래스입니다.
+// 실제 전투가 이루어지는 메인 스크린 클래스
 public class BattleScreen extends ScreenAdapter {
     private final HadesGame game;
     private ShapeRenderer shape;
@@ -170,7 +170,7 @@ public class BattleScreen extends ScreenAdapter {
         for (Unit u : units) if (u.isAlive()) unitRenderer.renderShadow(u, selectedUnit);
         for (Unit u : units) if (u.isAlive()) unitRenderer.renderBody(u, selectedUnit);
 
-        // GameUI 렌더링 시 정밀 좌표 mx, my를 전달하여 툴팁 판정 문제를 해결합니다.
+        // GameUI 렌더링 시 정밀 좌표 mx, my를 전달하여 툴팁 판정 문제를 해결
         gameUI.render(stageLevel, turnManager.getCurrentTurn(), playerTeam, menuHitbox, selectedUnit, mx, my);
         game.batch.end();
 
@@ -273,7 +273,7 @@ public class BattleScreen extends ScreenAdapter {
         // [1순위] 영웅의 권능 처리 (하데스 or AI 보스)
         if (reserved != null && !reserved.equals("기본 공격")) {
             if (isAnyTargetInRange(unit, reserved)) {
-                executeActiveSkill(unit, reserved); // 스킬 발동!
+                executeActiveSkill(unit, reserved); // 스킬 발동
                 unit.stat.setSkillUsed(reserved, true);
             } else {
                 // 사거리가 안 닿을 때 (플레이어에게만 알림 전송)
