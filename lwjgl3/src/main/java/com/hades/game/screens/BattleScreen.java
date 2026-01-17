@@ -247,21 +247,7 @@ public class BattleScreen extends ScreenAdapter {
                 if (tx >= 0 && ty >= 0 && selectedUnit.team.equals(playerTeam) && BoardManager.canMoveTo(selectedUnit, tx, ty, units)) {
                     selectedUnit.setPosition(tx, ty);
 
-                    String reservedSkill = selectedUnit.stat.getReservedSkill();
-                    if (reservedSkill != null) {
-                        // 이동 후 사거리 내에 타겟이 있는지 검사합니다.
-                        if (isAnyTargetInRange(selectedUnit, reservedSkill)) {
-                            executeActiveSkill(selectedUnit, reservedSkill);
-                            selectedUnit.stat.setSkillUsed(reservedSkill, true);
-                        } else {
-                            // 타겟이 없으면 장전 자동 취소 및 일반 공격 시도
-                            gameUI.addLog("사거리 내 적이 없어 " + reservedSkill + " 장전이 취소되었습니다.", "SYSTEM", playerTeam);
-                            processAutoAttack(playerTeam);
-                        }
-                        selectedUnit.stat.clearReservedSkill();
-                    } else {
-                        processAutoAttack(playerTeam);
-                    }
+                    processMoveEnd(selectedUnit);
 
                     selectedUnit = null;
                     aiBusy = true;
@@ -279,6 +265,27 @@ public class BattleScreen extends ScreenAdapter {
             }
             selectedUnit = clickedUnit;
         }
+    }
+
+    public void processMoveEnd(Unit unit) {
+        String reserved = unit.stat.getReservedSkill();
+
+        // [1순위] 영웅의 권능 처리 (하데스 or AI 보스)
+        if (reserved != null && !reserved.equals("기본 공격")) {
+            if (isAnyTargetInRange(unit, reserved)) {
+                executeActiveSkill(unit, reserved); // 스킬 발동!
+                unit.stat.setSkillUsed(reserved, true);
+            } else {
+                // 사거리가 안 닿을 때 (플레이어에게만 알림 전송)
+                if (unit.team.equals(playerTeam)) {
+                    gameUI.addLog("사거리 내 적이 없어 " + reserved + " 취소", "SYSTEM", playerTeam);
+                }
+            }
+            unit.stat.clearReservedSkill(); // 장전 해제
+        }
+
+        // [2순위] 이후 해당 진영 전체 자동 공격 (병사들의 평타 타임)
+        processAutoAttack(unit.team);
     }
 
     // 특정 스킬의 사거리 내에 적이 존재하는지 판별합니다.
@@ -417,6 +424,8 @@ public class BattleScreen extends ScreenAdapter {
             }
         }
     }
+
+
 
     private void handleDeath(Unit target) {
         target.status = Unit.DEAD;

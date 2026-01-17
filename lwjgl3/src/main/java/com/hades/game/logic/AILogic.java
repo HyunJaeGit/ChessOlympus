@@ -9,27 +9,34 @@ import com.hades.game.constants.SkillData;
 
 public class AILogic {
 
+    // AILogic.java의 processAITurn 메서드 수정
     public static void processAITurn(Array<Unit> units, String aiTeam, TurnManager turnManager, Object screenObj) {
         try {
             String strategy = getStrategy();
             System.out.println("[AI Strategy] " + strategy); // AI_TEST_LOG
 
             Object[] bestMove = findBestMove(units, aiTeam, strategy);
-
             Unit actor = (Unit) bestMove[0];
             int targetX = (int) bestMove[1];
             int targetY = (int) bestMove[2];
 
             if (actor != null) {
+                // [AI 보스] 이동 전 고유 권능 장전 (쿨타임 계산 없음)
+                if (actor.unitClass == Unit.UnitClass.HERO) {
+                    String bossSkill = actor.stat.skillName();
+                    actor.stat.setReservedSkill(bossSkill);
+                    System.out.println("[AI Action] " + actor.name + " reserved: " + bossSkill); // AI_TEST_LOG
+                }
+
                 System.out.println("[AI Action] " + actor.name + " move to (" + targetX + "," + targetY + ")"); // AI_TEST_LOG
                 actor.setPosition(targetX, targetY);
-                finalizeAction(aiTeam, screenObj);
-            } else {
-                System.out.println("[AI Action] No movable units found."); // AI_TEST_LOG
-            }
 
+                // 이동 후 처리를 BattleScreen의 통합 메서드로 넘김
+                if (screenObj instanceof BattleScreen) {
+                    ((BattleScreen) screenObj).processMoveEnd(actor);
+                }
+            }
         } catch (Exception e) {
-            System.err.println("[AI Error] Exception in AI Logic loop"); // AI_TEST_LOG
             e.printStackTrace();
         } finally {
             turnManager.endTurn();
