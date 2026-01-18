@@ -1,17 +1,15 @@
 {
-selectedHeroName: 솜주먹
+selectedHeroName: 키마
 selectedFaction: HADES
-currentStageLevel: 2
 heroStat: {
-	hp: 760
-	atk: 50
-	counterAtk: 30
-	move: 1
+	hp: 550
+	atk: 75
+	counterAtk: 15
+	move: 3
 	range: 1
 	value: 1000
 	learnedSkills: [
 		기본 공격
-		심연의 고리
 	]
 }
 }

@@ -139,6 +139,8 @@ public class BattleScreen extends ScreenAdapter {
         }
 
         turnManager = new TurnManager();
+        // TurnManager가 BattleScreen을 감시
+        turnManager.setBattleScreen(this);
         combatManager = new CombatManager(gameUI, turnManager, playerTeam, this::handleDeath);
         units = StageGenerator.create(stageLevel, playerTeam, heroName, heroStat);
     }
@@ -157,8 +159,14 @@ public class BattleScreen extends ScreenAdapter {
         }
 
         for (Unit u : units) u.update(delta);
+
+        // [수정] 업데이트 로직을 먼저 수행하여 사망 판정(handleDeath)이 cleanup보다 먼저 일어나게 함
         update(delta);
-        cleanupDeadUnits();
+
+        // [수정] 게임 오버가 아닐 때만 유닛 삭제를 진행하여, 영웅 사망 판정 시 리스트에 유닛이 남아있도록 보장함
+        if (!gameOver) {
+            cleanupDeadUnits();
+        }
 
         Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
@@ -332,40 +340,22 @@ public class BattleScreen extends ScreenAdapter {
     }
     // 영웅 유닛의 특수 권능(스킬)을 실행합니다.
     private void executeHeroSkill(Unit hero, String skillName) {
-        SkillData.Skill data = SkillData.get(skillName);
-        boolean hasTarget = false;
-
         // 기술 발동 시 유닛 머리 위에 기술명을 외치는 말풍선 생성
         hero.say(skillName + "!!");
 
-        for (Unit target : units) {
-            // 살아있는 적군인지 확인
-            if (target.isAlive() && !target.team.equals(hero.team)) {
-                // 맨해튼 거리를 계산하여 사거리 내에 있는지 확인
-                int dist = Math.abs(hero.gridX - target.gridX) + Math.abs(hero.gridY - target.gridY);
+        // 직접 루프를 돌지 않고 통합 매니저인 SkillManager에 모든 로직을 위임합니다.
+        // 이 메서드 하나로 사거리 판정, 공격/치유 분기, 하데스 스킬 횟수 차감이 모두 처리됩니다.
+        SkillManager.executeSkill(hero, skillName, units, gameUI, playerTeam);
 
-                if (dist <= data.range) {
-                    // 전투 매니저를 통해 실제 공격 로직 수행
-                    combatManager.performAttack(hero, target);
-                    hasTarget = true;
-
-                    // 광역기(AoE)가 아니면 첫 번째 대상을 공격한 후 루프 종료
-                    if (!data.isAoE) break;
-                }
-            }
-        }
-
-        // 사거리 내에 대상이 없어 기술이 불발된 경우 시스템 메시지 출력
-        if (!hasTarget && hero.team.equals(playerTeam)) {
-            gameUI.addLog("사거리 내 적이 없어 " + skillName + " 취소", "SYSTEM", playerTeam);
-        }
-
-        // 기술 사용 후 예약된 스킬 상태 초기화
+        // 기술 사용 후 예약된 스킬 상태 초기화 (SkillManager 내부에서도 처리하지만 이중 안전장치로 유지)
         hero.stat.clearReservedSkill();
     }
 
     // [handleDeath] 유닛이 사망할 때마다 호출되어 승패를 판정하는 핵심 로직입니다.
     private void handleDeath(Unit target) {
+        // [추가] 이미 게임 오버라면 중복 처리를 방지
+        if (gameOver) return;
+
         target.status = Unit.DEAD; // 유닛 상태를 사망으로 변경
 
         // 사망한 유닛이 적군 영웅(보스)인지, 플레이어 영웅인지 체크
@@ -377,24 +367,22 @@ public class BattleScreen extends ScreenAdapter {
             // [핵심] 모든 배경 음악을 정지시켜 중복 재생을 방지하고 정적을 만듭니다.
             game.playMusic(null);
             gameOver = true; // 게임 오버 플래그 활성화 (render의 업데이트 중지)
-        }
 
-        // 2. 승리 시 처리 (적 보스 사망)
-        if (isEnemyBoss) {
-            // 마지막 7스테이지라면 엔딩 컷신으로 연결
-            if (stageLevel == 7) {
-                game.setScreen(new com.hades.game.screens.cutscene.BaseCutsceneScreen(
-                    game, com.hades.game.screens.cutscene.CutsceneManager.getStageData(8), new EndingScreen(game)
-                ));
+            // [수정] 즉시 결과 창을 띄움
+            if (isEnemyBoss) {
+                // 마지막 7스테이지라면 엔딩 컷신으로 연결
+                if (stageLevel == 7) {
+                    game.setScreen(new com.hades.game.screens.cutscene.BaseCutsceneScreen(
+                        game, com.hades.game.screens.cutscene.CutsceneManager.getStageData(8), new EndingScreen(game)
+                    ));
+                } else {
+                    gameUI.addLog("승리! 적의 수장을 물리쳤습니다.", "SYSTEM", playerTeam);
+                    showGameOverMenu(true); // 승리 메뉴 표시
+                }
             } else {
-                gameUI.addLog("승리! 적의 수장을 물리쳤습니다.", "SYSTEM", playerTeam);
-                showGameOverMenu(true); // 승리 메뉴 표시
+                gameUI.addLog("패배... 하데스의 영웅이 전사했습니다.", "SYSTEM", playerTeam);
+                showGameOverMenu(false); // 패배 메뉴 표시
             }
-        }
-        // 3. 패배 시 처리 (플레이어 영웅 사망)
-        else if (isPlayerHero) {
-            gameUI.addLog("패배... 하데스의 영웅이 전사했습니다.", "SYSTEM", playerTeam);
-            showGameOverMenu(false); // 패배 메뉴 표시
         }
     }
 
@@ -511,6 +499,11 @@ public class BattleScreen extends ScreenAdapter {
         shape.setColor(0, 0, 0, 0.7f);
         shape.rect(0, 0, GameConfig.VIRTUAL_WIDTH, GameConfig.VIRTUAL_HEIGHT);
         shape.end();
+    }
+
+    // 게임오버 확인
+    public boolean isGameOver() {
+        return gameOver;
     }
 
     @Override

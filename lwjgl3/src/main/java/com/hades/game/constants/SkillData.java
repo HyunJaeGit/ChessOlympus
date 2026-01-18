@@ -5,71 +5,57 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class SkillData {
+    public enum Shape { MANHATTAN, LINE, CROSS, SQUARE, GLOBAL }
+
     public static class Skill {
         public final String name;
-        public final String description;
+        public final String description; // [추가] UI에서 출력하기 위해 반드시 필요합니다.
         public final float power;
         public final int range;
         public final boolean isAoE;
+        public final Shape shape;
 
-        public Skill(String name, String description, float power, int range, boolean isAoE) {
+        public Skill(String name, String description, float power, int range, boolean isAoE, Shape shape) {
             this.name = name;
             this.description = description;
             this.power = power;
             this.range = range;
             this.isAoE = isAoE;
+            this.shape = shape;
         }
     }
 
     private static final Map<String, Skill> skills = new HashMap<>();
 
     static {
-        // --- [하데스 진영 권능] ---
-        addSkill("지옥의 숨결", "주변 1칸 모든 적에게 화염 피해 (계수:1.2)", 1.2f, 1, true);
-        addSkill("삼두견의 포효", "주변 2칸 모든 적에게 피해 (계수:0.8)", 0.8f, 2, true);
-        addSkill("연옥의 불꽃", "단일 대상에게 강력한 일격 (계수:1.7)", 1.7f, 1, false);
-        addSkill("그림자 습격", "먼 거리의 적을 기습 (계수:1.0)", 1.0f, 3, false);
-        addSkill("영혼 흡수", "피해를 입히고 체력 일부 회복 (계수:0.9)", 0.9f, 1, false);
-        addSkill("심연의 고리", "주변 3칸 내 적들에게 약한 피해 (계수:0.6)", 0.6f, 3, true);
-        addSkill("망자의 원한", "자신 주변에 강력한 저주 폭발 (계수:1.4)", 1.4f, 1, true);
+        // --- [하데스 영웅 스킬] ---
+        addSkill("연옥의 불꽃", "단일 대상에게 명계의 집중 화염 투하 (계수:3.0)", 3.0f, 1, false, Shape.MANHATTAN);
+        addSkill("그림자 습격", "일직선 상의 적을 기습하여 강력한 타격 (계수:2.0)", 2.0f, 4, false, Shape.LINE);
+        addSkill("지옥의 숨결", "주변 십자 범위 모든 적에게 업화 (계수:2.2)", 2.2f, 1, true, Shape.CROSS);
+        addSkill("심연의 고리", "넓은 다이아몬드 범위의 적들을 잠식 (계수:1.3)", 1.3f, 3, true, Shape.MANHATTAN);
+        addSkill("망자의 원한", "자신 주변 8칸에 원혼의 대폭발을 해방 (계수:2.5)", 2.5f, 1, true, Shape.SQUARE);
 
-        // --- [제우스 진영: 7단계 보스 전용 권능] ---
-        // 1. 제우스: 압도적인 맵 전체 타격
-        addSkill("심판의 번개", "전장의 모든 적 중 하나에게 번개 투하 (계수:1.8)", 1.8f, 99, false);
-
-        // 2. 아프로디테: 공격과 동시에 주변 치유
-        addSkill("매혹의 향기", "적 타격 시 주변 아군 치유 (계수:1.2)", 1.2f, 2, true);
-
-        // 3. 헤라: 이동 봉쇄 및 약화
-        addSkill("여왕의 권위", "공격 시 대상의 이동력을 0으로 고정 (계수:1.3)", 1.3f, 2, false);
-
-        // 4. 아르테미스: 원거리 관통 저격
-        addSkill("달빛의 추격", "원거리의 적을 꿰뚫는 저격 (계수:1.5)", 1.5f, 4, false);
-
-        // 5. 아테나: 완벽한 수비와 반격
-        addSkill("전략적 방벽", "공격 후 자신의 피해를 최소화 (계수:1.1)", 1.1f, 1, false);
-
-        // 6. 헤스티아: 불바다 생성 (지속딜)
-        addSkill("영겁의 화로", "공격 지점 주변에 화염 지대 생성 (계수:1.4)", 1.4f, 2, true);
-
-        // 7. 데메테르: 대지의 분노 (범위 공격)
-        addSkill("대지의 분노", "사거리 내의 적을 모두 공격하는 대지의 힘 (계수:1.0)", 1.0f, 2, true);
-
-        // 보조용
-        addSkill("올림푸스의 가호", "자신 주변 아군 치유 (계수:1.2)", 1.2f, 1, true);
+        // --- [제우스 영웅 스킬] ---
+        addSkill("심판의 번개", "체력이 가장 낮은 적을 추격하는 벼락 (계수:1.5)", 1.5f, 99, false, Shape.GLOBAL);
+        addSkill("매혹의 향기", "주변 8칸 아군을 성스러운 힘으로 치유 (계수:0.8)", 0.8f, 2, true, Shape.SQUARE);
+        addSkill("여왕의 권위", "십자 방향 적들을 압박하여 위축시킴 (계수:1.1)", 1.1f, 2, true, Shape.CROSS);
+        addSkill("달빛의 추격", "매우 긴 사거리에서 일직선 정밀 저격 (계수:1.3)", 1.3f, 6, false, Shape.LINE);
+        addSkill("전략적 방벽", "공격과 동시에 피해를 줄이는 방어막 형성 (계수:1.0)", 1.0f, 1, false, Shape.MANHATTAN);
+        addSkill("영겁의 화로", "지면을 불바다로 만들어 적의 접근 차단 (계수:1.2)", 1.2f, 3, true, Shape.MANHATTAN);
+        addSkill("대지의 분노", "지진을 일으켜 주변 8칸 모든 적을 타격 (계수:0.8)", 0.8f, 2, true, Shape.SQUARE);
+        addSkill("올림푸스의 가호", "성스러운 빛으로 아군을 대폭 회복 (계수:1.8)", 1.8f, 1, false, Shape.MANHATTAN);
     }
 
-    private static void addSkill(String name, String description, float power, int range, boolean isAoE) {
-        skills.put(name, new Skill(name, description, power, range, isAoE));
+    private static void addSkill(String name, String desc, float power, int range, boolean isAoE, Shape shape) {
+        skills.put(name, new Skill(name, desc, power, range, isAoE, shape));
     }
 
+    // [복구] UpgradeScreen에서 랜덤 스킬 옵션을 뽑을 때 사용합니다.
     public static Array<String> getRandomSkills(int count, Array<String> learnedSkills) {
         Array<String> pool = new Array<>();
         for (String name : skills.keySet()) {
-            // 필터링: 이미 배움 / 보스 전용 키워드 / 기본 공격 제외
-            if (!learnedSkills.contains(name, false) &&
-                !isBossSkill(name) &&
-                !name.equals("기본 공격")) {
+            // 이미 배운 스킬이 아니고, 보스 전용 스킬이 아닌 것들 중에서 선택
+            if (!learnedSkills.contains(name, false) && !isBossSkill(name) && !name.equals("기본 공격")) {
                 pool.add(name);
             }
         }
@@ -81,7 +67,7 @@ public class SkillData {
         return result;
     }
 
-    // 보스 전용 스킬인지 판별하는 헬퍼 메서드
+    // 제우스 진영 영웅들이 사용하는 스킬인지 판별
     private static boolean isBossSkill(String name) {
         return name.contains("심판") || name.contains("매혹") || name.contains("여왕") ||
             name.contains("달빛") || name.contains("전략적") || name.contains("영겁") ||
@@ -89,6 +75,6 @@ public class SkillData {
     }
 
     public static Skill get(String skillName) {
-        return skills.getOrDefault(skillName, new Skill("기본 공격", "적에게 타격", 1.0f, 1, false));
+        return skills.getOrDefault(skillName, new Skill("기본 공격", "적에게 타격", 1.0f, 1, false, Shape.MANHATTAN));
     }
 }

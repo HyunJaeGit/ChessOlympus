@@ -242,10 +242,21 @@ public class GameUI implements Disposable {
         float startY = winY + winH - 60;
 
         game.unitFont2.setColor(Color.GOLD);
-        game.unitFont2.draw(game.batch, "== GAME RULES & CONTROLS ==", textX, startY);
+        game.unitFont2.draw(game.batch, "게임룰 / 조작법", textX, startY);
 
         game.unitFont3.setColor(Color.WHITE);
-        String help = "\n[ 이동 및 공격 ]\n- 좌클릭으로 아군 선택 후 이동 타일 클릭\n- 이동 후 자동 공격\n\n[ 권능 사용 ]\n- 스킬 클릭하여 '장전' 후 이동\n\n[ 카메라 ]\n- 휠: 줌 | 우클릭 드래그: 이동 (떼면 복귀)";
+        String help = "[게임 룰]\n" +
+            "- 상대 영웅을 제거하면 승리\n" +
+            "- 스테이지 진입시 유닛 배치는 랜덤\n" +
+            "- 하데스 영웅의 권능은 스테이지 당 1회만 사용 가능\n\n" +
+            "[ 이동 및 공격 ]\n" +
+            "- 좌클릭으로 아군 선택 후 이동할 타일 클릭\n" +
+            "- 이동 후 자동 공격으로 턴 종료\n" +
+            "- 자동 공격은 사거리 내 가장 체력이 낮은 유닛을 우선 공격\n\n" +
+            "[ 권능 사용 ]\n" +
+            "- 스킬 클릭하여 '장전' 후 이동하면 자동 사용\n\n" +
+            "[ 카메라 ]\n" +
+            "- 휠: 줌 | 우클릭 드래그: 이동 (떼면 복귀)";
         game.unitFont3.draw(game.batch, help, textX, startY - 40, winW - 120, Align.left, true);
 
         game.unitFont3.setColor(Color.GRAY);
