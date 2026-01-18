@@ -231,29 +231,53 @@ public class BattleScreen extends ScreenAdapter {
     }
 
     private void handleInput() {
+        // 디버그 툴 처리
         com.hades.game.utils.DebugManager.handleBattleDebug(game, units, aiTeam, this::handleDeath);
+
+        // 게임 오버 상태면 입력 무시
         if (gameOver) return;
 
+        // 마우스 좌표를 게임 월드 좌표로 변환 (Unproject)
         Vector2 touchPos = new Vector2(Gdx.input.getX(), Gdx.input.getY());
         stage.getViewport().unproject(touchPos);
         float mx = touchPos.x;
         float my = touchPos.y;
 
+        // 클릭 발생 시 처리
         if (Gdx.input.justTouched()) {
+
+            // 1. [우선순위 1] HELP 버튼 클릭 체크
+            if (gameUI.isHelpClicked(mx, my)) {
+                game.playClick();
+                showHelp = !showHelp; // 도움말 창 상태 반전 (토글)
+                return; // UI를 클릭했으므로 아래 로직 무시
+            }
+
+            // 2. [우선순위 2] 도움말 창이 켜져 있을 때 화면 어디든 누르면 닫기
+            if (showHelp) {
+                showHelp = false;
+                return;
+            }
+
+            // 3. [우선순위 3] 화면 모드 버튼 (WINDOW/FULLSCREEN) 클릭 체크
             if (menuHitbox.contains(mx, my)) {
                 game.playClick();
                 toggleFullscreen();
                 return;
             }
 
+            // 4. [우선순위 4] 권능(스킬) UI 클릭 체크 (아군 영웅이 선택되어 있을 때)
             if (selectedUnit != null && selectedUnit.team.equals(playerTeam) && selectedUnit.unitClass == Unit.UnitClass.HERO) {
                 String clickedSkill = gameUI.getClickedSkill(mx, my, selectedUnit);
                 if (clickedSkill != null) {
                     String currentReserved = selectedUnit.stat.getReservedSkill();
+
                     if (clickedSkill.equals(currentReserved)) {
+                        // 이미 장전된 스킬을 다시 누르면 취소
                         selectedUnit.stat.clearReservedSkill();
                         gameUI.addLog(clickedSkill + " 장전 취소", "SYSTEM", playerTeam);
                     } else {
+                        // 새로운 스킬 장전
                         selectedUnit.stat.setReservedSkill(clickedSkill);
                         gameUI.addLog(clickedSkill + " 장전됨! 이동 시 발동.", selectedUnit.team, playerTeam);
                     }
@@ -263,24 +287,30 @@ public class BattleScreen extends ScreenAdapter {
             }
         }
 
+        // 아군 턴이 아니거나 AI가 행동 중이면 조작 불가
         if (!turnManager.getCurrentTurn().equals(playerTeam) || aiBusy) return;
 
+        // 마우스가 위치한 그리드 좌표 계산 (호버링 효과용)
         hoveredGrid = IsoUtils.screenToGrid(mx, my);
 
+        // 실제 필드 내 유닛 클릭 및 이동 처리
         if (Gdx.input.justTouched()) {
+
+            // 유닛 이동 처리: 유닛이 선택되어 있고, 클릭한 타일이 이동 가능할 때
             if (selectedUnit != null) {
                 int tx = (int) hoveredGrid.x;
                 int ty = (int) hoveredGrid.y;
                 if (tx >= 0 && ty >= 0 && selectedUnit.team.equals(playerTeam) && BoardManager.canMoveTo(selectedUnit, tx, ty, units)) {
-                    selectedUnit.setPosition(tx, ty);
-                    processMoveEnd(selectedUnit);
-                    selectedUnit = null;
-                    aiBusy = true;
-                    turnManager.endTurn();
+                    selectedUnit.setPosition(tx, ty); // 유닛 이동
+                    processMoveEnd(selectedUnit);    // 이동 후 교전 처리 등
+                    selectedUnit = null;             // 선택 해제
+                    aiBusy = true;                   // AI 턴으로 넘어가기 전 대기 상태
+                    turnManager.endTurn();           // 턴 종료
                     return;
                 }
             }
 
+            // 유닛 선택 처리: 필드 위의 유닛을 클릭했을 때
             Unit clickedUnit = null;
             for (Unit u : units) {
                 if (u.isAlive() && unitRenderer.isMouseInsideHitbox(u, mx, my)) {
@@ -289,7 +319,7 @@ public class BattleScreen extends ScreenAdapter {
                     break;
                 }
             }
-            selectedUnit = clickedUnit;
+            selectedUnit = clickedUnit; // 클릭한 유닛을 선택 유닛으로 지정 (없으면 null)
         }
     }
 
