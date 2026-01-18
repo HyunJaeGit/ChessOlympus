@@ -88,10 +88,10 @@ public class UnitData {
 
     // --- [하데스 진영 영웅: 상향된 밸런싱] ---
     public static final Stat SOM_JUMEOK  = new Stat(900, 55, 45 , 1, 1, "기본 공격", 1000);
-    public static final Stat KIMA        = new Stat(550, 75, 15, 3, 1, "기본 공격", 1000);
-    public static final Stat CHAN_NA     = new Stat(600, 85, 25, 2, 1, "기본 공격", 1000);
-    public static final Stat THING_GYUL  = new Stat(480, 65, 10, 2, 3, "기본 공격", 1000);
-    public static final Stat YEON_CHOROK = new Stat(700, 40, 85, 2, 1, "기본 공격", 1000);
+    public static final Stat KIMA        = new Stat(850, 60, 15, 2, 1, "기본 공격", 1000);
+    public static final Stat CHAN_NA     = new Stat(800, 50, 50, 1, 1, "기본 공격", 1000);
+    public static final Stat THING_GYUL  = new Stat(880, 65, 10, 1, 3, "기본 공격", 1000);
+    public static final Stat YEON_CHOROK = new Stat(750, 40, 60, 2, 2, "기본 공격", 1000);
 
     // --- [제우스 진영 영웅: 보스 밸런싱] ---
     public static final Stat DEMETER    = new Stat(1000, 45, 25, 1, 1, "대지의 분노", 1000);
