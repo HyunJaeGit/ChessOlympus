@@ -1,6 +1,7 @@
 {
 selectedHeroName: 연초록
 selectedFaction: HADES
+currentStageLevel: 2
 heroStat: {
 	hp: 500
 	atk: 30
@@ -12,4 +13,6 @@ heroStat: {
 		기본 공격
 	]
 }
+soulFragments: 3
+olympusSeals: 1
 }

@@ -387,7 +387,7 @@ public class BattleScreen extends ScreenAdapter {
 
 
         // 3. 메인 메뉴로 돌아가기 (홈 버튼)
-        Label titleBtn = new Label("[ RETURN TO TITLE ]", new Label.LabelStyle(game.mainFont, Color.valueOf("7F8C8D")));
+        Label titleBtn = new Label("[ HOME ]", new Label.LabelStyle(game.mainFont, Color.valueOf("7F8C8D")));
         titleBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
