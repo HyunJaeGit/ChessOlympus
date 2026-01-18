@@ -251,18 +251,24 @@ public class StageMapScreen extends ScreenAdapter {
         // 5. 알림 메시지 드로우 (시간 초과 시 자동 소멸)
         if (saveMessageTimer > 0) {
             float alpha = MathUtils.clamp(saveMessageTimer, 0, 1f);
-            game.mainFont.setColor(0, 1f, 0.9f, alpha); // 청록색 계열
+            game.mainFont.setColor(0, 1f, 0.9f, alpha);
             game.mainFont.getData().setScale(cam.zoom * 0.75f);
 
-            // 카메라 상단 기준으로 텍스트 위치 계산
-            float textX = cam.position.x - (380f * cam.zoom);
-            float textY = cam.position.y + (viewport.getWorldHeight() * cam.zoom / 2.5f);
+            // 1. 텍스트 박스(레이아웃) 생성 및 문구 너비 계산
+            // 이 박스는 눈에 보이지 않지만, 문구의 실제 가로/세로 길이를 측정
+            com.badlogic.gdx.graphics.g2d.GlyphLayout layout = new com.badlogic.gdx.graphics.g2d.GlyphLayout();
+            layout.setText(game.mainFont, saveMessage);
 
+            // 2. 계산된 박스 크기를 바탕으로 정중앙 좌표 산출
+            // (카메라 중심) - (박스 너비의 절반) = 완벽한 좌우 중앙
+            float textX = cam.position.x - (layout.width / 2);
+            // (카메라 중심) + (박스 높이의 절반) = 완벽한 상하 중앙
+            float textY = cam.position.y + (layout.height / 2);
+
+            // 3. 그리기
             game.mainFont.draw(game.batch, saveMessage, textX, textY);
 
             saveMessageTimer -= delta;
-
-            // 폰트 상태 초기화 (다른 텍스트에 영향 방지)
             game.mainFont.setColor(Color.WHITE);
             game.mainFont.getData().setScale(1.0f);
         }
@@ -284,13 +290,16 @@ public class StageMapScreen extends ScreenAdapter {
         game.batch.setColor(Color.WHITE);
 
         // 버튼 텍스트
+        // 폰트 크기 동적 조절
         game.detailFont.getData().setScale(cam.zoom * 0.8f);
+
         game.detailFont.setColor(Color.LIGHT_GRAY);
         game.detailFont.draw(game.batch, "기록하기", cam.position.x - 125f * cam.zoom, bY + 35f * cam.zoom);
 
         game.detailFont.setColor(Color.LIGHT_GRAY);
         game.detailFont.draw(game.batch, "홈으로", cam.position.x + 50f * cam.zoom, bY + 35f * cam.zoom);
 
+        // 폰트 상태 복구
         game.detailFont.setColor(Color.WHITE);
         game.detailFont.getData().setScale(1.0f);
     }
