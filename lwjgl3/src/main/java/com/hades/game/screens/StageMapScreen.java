@@ -8,7 +8,6 @@ import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
-import com.badlogic.gdx.math.Interpolation;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector3;
@@ -19,57 +18,57 @@ import com.hades.game.constants.GameConfig;
 import com.hades.game.screens.cutscene.BaseCutsceneScreen;
 import com.hades.game.screens.cutscene.CutsceneManager;
 
-// Chess Olympus: HADES vs ZEUS - 스테이지 선택 및 진행 화면
-// 월드 맵 내 노드를 선택하여 전투 단계로 진입하거나 게임 상태를 저장합니다.
+// Chess Olympus: HADES vs ZEUS - 스테이지 선택 및 맵 이동 화면
 public class StageMapScreen extends ScreenAdapter {
     private final HadesGame game;
     private final OrthographicCamera cam;
     private final Viewport viewport;
     private final ShapeRenderer shapeRenderer;
 
-    // 리소스 영역
-    private final Texture backgroundTexture;
-    private final Texture nodeLocked, nodeCurrent, nodeClear;
-    private final Texture infoWindowTex;
-    private final Texture moveBtnTex;
+    // 리소스 이미지
+    private final Texture backgroundTexture; // 수직형 전체 맵 배경
+    private final Texture nodeLocked, nodeCurrent, nodeClear; // 스테이지 노드 상태별 아이콘
+    private final Texture infoWindowTex; // 스테이지 정보 창 배경 패널
+    private final Texture moveBtnTex; // 전투 시작(이동) 버튼 이미지
 
-    // 카메라 및 뷰 제어 변수
-    private final Vector3 targetPos;
-    private float targetZoom = 2.5f;
-    private float stateTime = 0f;
-    private final float moveSpeedFactor = 0.15f;
-    private final float zoomSpeedFactor = 0.08f;
+    // 카메라 및 이동 제어 수치
+    private final Vector3 targetPos = new Vector3(); // 카메라가 부드럽게 이동할 목표 지점
+    private float targetZoom = 2.5f; // 카메라가 도달할 목표 줌 (클수록 멀리 보임)
+    private final float moveSpeedFactor = 0.12f; // 카메라 위치 보간 속도 (Lerp)
+    private final float zoomSpeedFactor = 0.08f; // 카메라 줌 보간 속도 (Lerp)
+    private float stateTime = 0f; // 애니메이션(노드 펄스 효과 등)을 위한 누적 시간
 
-    // 맵 데이터 및 노드 설정
-    private static final float MAP_WIDTH = 1280f;
-    private static final float MAP_HEIGHT = 2560f;
-    private final float[][] nodePositions = {
+    // 맵 및 노드 설정
+    private static final float MAP_WIDTH = 1280f; // 전체 맵 가로 크기
+    private static final float MAP_HEIGHT = 2560f; // 전체 맵 세로 크기 (수직형)
+    private final float[][] nodePositions = { // 각 스테이지 노드의 월드 좌표 {x, y}
         {640, 300}, {450, 650}, {830, 950}, {640, 1300},
         {450, 1650}, {830, 1950}, {640, 2300}
     };
     private final String[] stageNames = {"아케론 강", "탄탈로스의 늪", "엘리시움", "타르타로스", "스틱스", "올림포스 관문", "제우스의 옥좌"};
     private final String[] stageBosses = {"보스: 데메테르", "보스: 헤스티아", "보스: 아테나", "보스: 아르테미스", "보스: 헤라", "보스: 아프로디테", "보스: 제우스"};
 
-    // UI 인터랙션 영역
-    private int selectedStageIndex = -1;
-    private boolean isInfoWindowOpen = false;
-    private final Rectangle infoWindowRect = new Rectangle();
-    private final Rectangle startButtonRect = new Rectangle();
-    private final Rectangle saveButtonRect = new Rectangle();
-    private final Rectangle homeButtonRect = new Rectangle();
-    private final Vector3 touchPoint = new Vector3();
+    // 상태 제어 및 클릭 판정 영역
+    private int selectedStageIndex = -1; // 현재 선택(클릭)된 스테이지 인덱스
+    private boolean isInfoWindowOpen = false; // 정보 창 표시 여부
+    private final Rectangle infoWindowRect = new Rectangle(); // 정보 창 터치 무시용 영역
+    private final Rectangle startButtonRect = new Rectangle(); // 전투 시작 버튼 영역
+    private final Rectangle saveButtonRect = new Rectangle(); // 저장하기 버튼 영역
+    private final Rectangle homeButtonRect = new Rectangle(); // 홈으로 버튼 영역
+    private final Vector3 touchPoint = new Vector3(); // 터치 좌표 변환용 벡터
 
-    // 알림 메시지 변수
-    private String saveMessage = "";
-    private float saveMessageTimer = 0f;
+    // 알림 메시지 (기록 완료, 잠금 메시지 등)
+    private String saveMessage = ""; // 화면에 표시할 메시지 텍스트
+    private float saveMessageTimer = 0f; // 메시지 표시 유지 시간 (0보다 크면 표시)
 
     public StageMapScreen(HadesGame game) {
         this.game = game;
         this.cam = new OrthographicCamera();
+        // 맵의 가로폭에 맞춰 뷰포트 설정
         this.viewport = new ExtendViewport(MAP_WIDTH, GameConfig.VIRTUAL_HEIGHT, cam);
         this.shapeRenderer = new ShapeRenderer();
 
-        // 그래픽 에셋 로드
+        // 이미지 로드
         backgroundTexture = new Texture(Gdx.files.internal("images/background/stage_map_full.png"));
         nodeLocked = new Texture(Gdx.files.internal("images/ui/map/node_locked.png"));
         nodeCurrent = new Texture(Gdx.files.internal("images/ui/map/node_current.png"));
@@ -77,148 +76,135 @@ public class StageMapScreen extends ScreenAdapter {
         infoWindowTex = new Texture(Gdx.files.internal("images/ui/map/info_panel.png"));
         moveBtnTex = new Texture(Gdx.files.internal("images/ui/map/move_icon.png"));
 
-        // 현재 진행도(RunState)에 따른 초기 카메라 위치 설정
+        // 시작 시 카메라 위치 설정: 현재 진행 중인 스테이지 레벨을 중앙에 배치
         int currentIdx = MathUtils.clamp(game.runState.currentStageLevel - 1, 0, nodePositions.length - 1);
-        float startX = nodePositions[currentIdx][0];
-        float startY = nodePositions[currentIdx][1];
-
-        targetPos = new Vector3(startX, startY, 0);
-        cam.position.set(startX, startY, 0);
+        targetPos.set(nodePositions[currentIdx][0], nodePositions[currentIdx][1], 0);
+        cam.position.set(targetPos.x, targetPos.y, 0);
         cam.zoom = 2.0f;
-
-        // 하단 고정 UI 영역 설정
-        saveButtonRect.set(MAP_WIDTH / 2f - 230f, 50f, 220f, 80f);
-        homeButtonRect.set(MAP_WIDTH / 2f + 10f, 50f, 220f, 80f);
+        targetZoom = 2.0f;
     }
 
     @Override
     public void show() {
-        // 1. 배경음악 중복 방지 및 재생 처리
-        if (game.menuBgm != null) {
-            if (!game.menuBgm.isPlaying()) {
-                game.menuBgm.setLooping(true);
-                game.menuBgm.setVolume(game.globalVolume);
-                game.menuBgm.play();
-            } else {
-                game.menuBgm.setVolume(game.globalVolume);
-            }
-        }
-
-        // 2. 배틀 음악이 남아있다면 정지 (안전장치)
-        if (game.battleBgm != null && game.battleBgm.isPlaying()) {
-            game.battleBgm.stop();
-        }
-
-        // 3. [중요] 입력 프로세서를 마지막에 설정하여 조작권 보장
         setupInputProcessor();
     }
 
-    // 터치 및 드래그, 스크롤 입력 로직 정의
+    // 터치 및 드래그, 스크롤 입력 처리 설정
     private void setupInputProcessor() {
         Gdx.input.setInputProcessor(new InputAdapter() {
-            private boolean isMapMoved = false;
             private float dragDistance = 0;
 
             @Override
             public boolean scrolled(float amountX, float amountY) {
                 if (isInfoWindowOpen) return true;
-                targetPos.y -= amountY * 150f * cam.zoom;
+                // 마우스 휠 스크롤 시 카메라 목표 높이 조절
+                targetPos.y -= amountY * 250f * cam.zoom;
                 return true;
             }
 
             @Override
             public boolean touchDown(int screenX, int screenY, int pointer, int button) {
-                isMapMoved = false;
-                dragDistance = 0;
+                dragDistance = 0; // 드래그 누적 거리 초기화
                 return true;
             }
 
             @Override
             public boolean touchDragged(int screenX, int screenY, int pointer) {
                 if (isInfoWindowOpen) return true;
+                // 드래그 시 카메라 위치 직접 이동 (손가락 움직임 반영)
                 float deltaY = Gdx.input.getDeltaY();
-                if (Math.abs(deltaY) > 2) {
-                    targetPos.y += deltaY * cam.zoom;
-                    dragDistance += Math.abs(deltaY);
-                    isMapMoved = true;
-                }
+                targetPos.y += deltaY * cam.zoom;
+                dragDistance += Math.abs(deltaY);
                 return true;
             }
 
             @Override
             public boolean touchUp(int screenX, int screenY, int pointer, int button) {
-                // 단순 클릭 시에만 processClick 실행 (드래그 시 클릭 판정 방지)
-                if (!isMapMoved || dragDistance < 15) processClick(screenX, screenY);
+                // 짧은 터치(드래그가 적을 때)만 클릭으로 간주
+                if (dragDistance < 15) {
+                    processClick(screenX, screenY);
+                }
                 return true;
             }
         });
     }
 
-    // 클릭 좌표에 따른 UI 상호작용 처리
+    // 클릭 시 좌표 판정 및 로직 수행
     private void processClick(int screenX, int screenY) {
         touchPoint.set(screenX, screenY, 0);
-        viewport.unproject(touchPoint);
+        viewport.unproject(touchPoint); // 화면 좌표를 게임 월드 좌표로 변환
 
-        // 1. 저장하기 버튼: 현재 RunState 저장 및 메시지 표시
-        if (saveButtonRect.contains(touchPoint.x, touchPoint.y)) {
-            game.playClick();
-            game.saveGame();
-            saveMessage = "기록이 성좌에 새겨졌습니다.";
-            saveMessageTimer = 2.0f;
-            return;
-        }
+        if (checkSystemButtons()) return; // 하단 버튼 클릭 시 스테이지 클릭 무시
 
-        // 2. 홈으로 버튼: 메인 메뉴로 복귀
-        if (homeButtonRect.contains(touchPoint.x, touchPoint.y)) {
-            game.playClick();
-            game.setScreen(new MenuScreen(game));
-            return;
-        }
-
-        // 3. 전투 시작 버튼: 컷신 및 전투 화면으로 진입 (음악 중단 포함)
+        // 정보 창의 '전투 시작' 버튼 클릭 판정
         if (isInfoWindowOpen && startButtonRect.contains(touchPoint.x, touchPoint.y)) {
             game.playClick();
-            // 배경음악 중복 방지를 위해 명시적 중단
-            if (game.menuBgm != null) game.menuBgm.stop();
-
-            int stageNum = selectedStageIndex + 1;
-            game.setScreen(new BaseCutsceneScreen(
-                game,
-                CutsceneManager.getStageData(stageNum),
-                new BattleScreen(game, game.runState.selectedFaction, game.runState.selectedHeroName, game.runState.heroStat, stageNum)
-            ));
+            game.setScreen(new BaseCutsceneScreen(game,
+                CutsceneManager.getStageData(selectedStageIndex + 1),
+                new BattleScreen(game, game.runState.selectedFaction, game.runState.selectedHeroName, game.runState.heroStat, selectedStageIndex + 1)));
             return;
         }
 
-        // 4. 노드 클릭: 스테이지 상세 정보창 열기
-        boolean nodeClicked = false;
+        // 맵 상의 노드 클릭 판정
+        int clickedNode = -1;
         for (int i = 0; i < nodePositions.length; i++) {
-            float dist = touchPoint.dst(nodePositions[i][0], nodePositions[i][1], 0);
-            if (dist < 100f) {
-                if (i + 1 <= game.runState.currentStageLevel) {
-                    selectedStageIndex = i;
-                    isInfoWindowOpen = true;
-                    targetZoom = 1.0f;
-                    targetPos.set(nodePositions[i][0] + 180f, nodePositions[i][1], 0);
-                    game.playClick();
-                    nodeClicked = true;
-                }
+            if (touchPoint.dst(nodePositions[i][0], nodePositions[i][1], 0) < 80f) {
+                clickedNode = i;
                 break;
             }
         }
 
-        // 5. 빈 공간 클릭: 정보창 닫기 및 카메라 줌 리셋
-        if (!nodeClicked) {
-            if (isInfoWindowOpen && !infoWindowRect.contains(touchPoint.x, touchPoint.y)) {
-                isInfoWindowOpen = false;
-                selectedStageIndex = -1;
+        if (clickedNode != -1) {
+            // 현재 진행 가능한 스테이지인지 확인
+            if (clickedNode + 1 <= game.runState.currentStageLevel) {
+                selectedStageIndex = clickedNode;
+                isInfoWindowOpen = true;
+                targetZoom = 1.5f; // 선택 시 확대
+                targetPos.set(nodePositions[clickedNode][0] + 180f, nodePositions[clickedNode][1], 0); // 정보창을 고려한 옆 이동
                 game.playClick();
-            } else if (!isInfoWindowOpen) {
+            } else {
+                // 잠긴 스테이지 클릭 시 알림
+                saveMessage = "운명이 아직 이 성좌를 허락하지 않았습니다.";
+                saveMessageTimer = 2.0f;
+            }
+        } else {
+            // 노드 외부 클릭 시 정보 창 닫기 및 줌 복구
+            if (isInfoWindowOpen) {
+                if (!infoWindowRect.contains(touchPoint.x, touchPoint.y)) {
+                    isInfoWindowOpen = false;
+                    game.playClick();
+                }
+            } else if (targetZoom < 2.0f) {
                 targetZoom = 2.5f;
-                targetPos.set(MAP_WIDTH / 2f, MAP_HEIGHT / 2f, 0);
+                targetPos.set(MAP_WIDTH / 2f, cam.position.y, 0);
                 game.playClick();
             }
         }
+    }
+
+    // 하단 시스템 버튼(기록하기, 홈으로) 영역 및 클릭 체크
+    private boolean checkSystemButtons() {
+        float viewH = viewport.getWorldHeight() * cam.zoom;
+        float bW = 150f * cam.zoom;
+        float bH = 50f * cam.zoom;
+        float bY = cam.position.y - (viewH / 2f) + 50f * cam.zoom; // 화면 하단 고정 좌표
+
+        saveButtonRect.set(cam.position.x - 160f * cam.zoom, bY, bW, bH);
+        homeButtonRect.set(cam.position.x + 10f * cam.zoom, bY, bW, bH);
+
+        if (saveButtonRect.contains(touchPoint.x, touchPoint.y)) {
+            game.saveGame();
+            saveMessage = "성좌의 기록이 보존되었습니다.";
+            saveMessageTimer = 2.0f;
+            game.playClick();
+            return true;
+        }
+        if (homeButtonRect.contains(touchPoint.x, touchPoint.y)) {
+            game.playClick();
+            game.setScreen(new MenuScreen(game));
+            return true;
+        }
+        return false;
     }
 
     @Override
@@ -227,96 +213,116 @@ public class StageMapScreen extends ScreenAdapter {
         Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        // 카메라 보간 및 위치 제한(Clamping) 처리
+        // 카메라 가용 범위 계산 및 보간 이동
         float currentHalfW = (viewport.getWorldWidth() * cam.zoom) / 2f;
         float currentHalfH = (viewport.getWorldHeight() * cam.zoom) / 2f;
-        float finalTargetX = MathUtils.clamp(targetPos.x, currentHalfW, MAP_WIDTH - currentHalfW);
-        float finalTargetY = MathUtils.clamp(targetPos.y, currentHalfH, MAP_HEIGHT - currentHalfH);
-        if (currentHalfW * 2 > MAP_WIDTH) finalTargetX = MAP_WIDTH / 2f;
 
-        cam.position.x = MathUtils.lerp(cam.position.x, finalTargetX, moveSpeedFactor);
-        cam.position.y = MathUtils.lerp(cam.position.y, finalTargetY, moveSpeedFactor);
-        cam.zoom = Interpolation.smooth.apply(cam.zoom, targetZoom, zoomSpeedFactor);
+        cam.zoom = MathUtils.lerp(cam.zoom, targetZoom, zoomSpeedFactor);
+
+        // 카메라가 맵 밖으로 나가지 않도록 고정
+        targetPos.x = MathUtils.clamp(targetPos.x, currentHalfW, MAP_WIDTH - currentHalfW);
+        targetPos.y = MathUtils.clamp(targetPos.y, currentHalfH, MAP_HEIGHT - currentHalfH);
+        if (currentHalfW * 2 > MAP_WIDTH) targetPos.x = MAP_WIDTH / 2f;
+
+        cam.position.x = MathUtils.lerp(cam.position.x, targetPos.x, moveSpeedFactor);
+        cam.position.y = MathUtils.lerp(cam.position.y, targetPos.y, moveSpeedFactor);
         cam.update();
 
-        // 1단계: 배경 연결선 렌더링
-        shapeRenderer.setProjectionMatrix(cam.combined);
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
-        shapeRenderer.setColor(1, 1, 1, 0.2f);
-        for (int i = 0; i < nodePositions.length - 1; i++) {
-            shapeRenderer.line(nodePositions[i][0], nodePositions[i][1], nodePositions[i+1][0], nodePositions[i+1][1]);
-        }
-        shapeRenderer.end();
-
-        // 2단계: 맵 배경 및 스테이지 노드 렌더링
         game.batch.setProjectionMatrix(cam.combined);
         game.batch.begin();
+
+        // 1. 배경 드로우
         game.batch.draw(backgroundTexture, 0, 0, MAP_WIDTH, MAP_HEIGHT);
 
+        // 2. 스테이지 노드 드로우 (현재 스테이지는 펄스 효과 적용)
         for (int i = 0; i < nodePositions.length; i++) {
-            float x = nodePositions[i][0], y = nodePositions[i][1];
             Texture tex = (i + 1 < game.runState.currentStageLevel) ? nodeClear :
                 (i + 1 == game.runState.currentStageLevel) ? nodeCurrent : nodeLocked;
-
-            // 현재 진행해야 할 노드에 애니메이션 효과 적용
-            float scale = (i + 1 == game.runState.currentStageLevel) ? 1.0f + (float)Math.sin(stateTime * 5f) * 0.1f : 1.0f;
-            game.batch.draw(tex, x - (128*scale)/2f, y - (128*scale)/2f, 128*scale, 128*scale);
+            float pulse = (i + 1 == game.runState.currentStageLevel) ? 1.0f + (float)Math.sin(stateTime * 4f) * 0.05f : 1.0f;
+            game.batch.draw(tex, nodePositions[i][0] - 64 * pulse, nodePositions[i][1] - 64 * pulse, 128 * pulse, 128 * pulse);
         }
 
-        // 3단계: 시스템 버튼 및 정보창 렌더링
-        drawMapButtons();
+        // 3. 시스템 UI(하단 버튼) 드로우
+        drawSystemUI();
 
-        if (isInfoWindowOpen && selectedStageIndex != -1) drawInfoWindow();
+        // 4. 스테이지 상세 정보창 드로우
+        if (isInfoWindowOpen) drawInfoWindow();
 
-        // 저장 안내 메시지 페이드 아웃 처리
+        // 5. 알림 메시지 드로우 (시간 초과 시 자동 소멸)
         if (saveMessageTimer > 0) {
-            game.mainFont.setColor(0, 1, 0.8f, MathUtils.clamp(saveMessageTimer, 0, 1));
-            game.mainFont.draw(game.batch, saveMessage, MAP_WIDTH / 2f - 200f, 180f);
+            float alpha = MathUtils.clamp(saveMessageTimer, 0, 1f);
+            game.mainFont.setColor(0, 1f, 0.9f, alpha); // 청록색 계열
+            game.mainFont.getData().setScale(cam.zoom * 0.75f);
+
+            // 카메라 상단 기준으로 텍스트 위치 계산
+            float textX = cam.position.x - (380f * cam.zoom);
+            float textY = cam.position.y + (viewport.getWorldHeight() * cam.zoom / 2.5f);
+
+            game.mainFont.draw(game.batch, saveMessage, textX, textY);
+
             saveMessageTimer -= delta;
+
+            // 폰트 상태 초기화 (다른 텍스트에 영향 방지)
+            game.mainFont.setColor(Color.WHITE);
+            game.mainFont.getData().setScale(1.0f);
         }
+
         game.batch.end();
     }
 
-    // 하단 시스템 제어 버튼 그리기
-    private void drawMapButtons() {
-        game.batch.setColor(0.2f, 0.2f, 0.2f, 0.8f);
-        game.batch.draw(infoWindowTex, saveButtonRect.x, saveButtonRect.y, saveButtonRect.width, saveButtonRect.height);
-        game.batch.setColor(Color.WHITE);
-        game.detailFont.draw(game.batch, "저장하기", saveButtonRect.x + 45, saveButtonRect.y + 50);
+    // 하단 시스템 UI 그리기 및 텍스트 설정
+    private void drawSystemUI() {
+        float bW = 150f * cam.zoom;
+        float bH = 50f * cam.zoom;
+        float viewH = viewport.getWorldHeight() * cam.zoom;
+        float bY = cam.position.y - (viewH / 2f) + 50f * cam.zoom;
 
-        game.batch.setColor(0.2f, 0.2f, 0.2f, 0.8f);
-        game.batch.draw(infoWindowTex, homeButtonRect.x, homeButtonRect.y, homeButtonRect.width, homeButtonRect.height);
-        game.batch.setColor(Color.valueOf("7F8C8D"));
-        game.detailFont.draw(game.batch, "홈으로", homeButtonRect.x + 60, homeButtonRect.y + 50);
+        // 버튼 배경 (반투명 블랙)
+        game.batch.setColor(0, 0, 0, 0.8f);
+        game.batch.draw(infoWindowTex, cam.position.x - 160f * cam.zoom, bY, bW, bH);
+        game.batch.draw(infoWindowTex, cam.position.x + 10f * cam.zoom, bY, bW, bH);
         game.batch.setColor(Color.WHITE);
+
+        // 버튼 텍스트
+        game.detailFont.getData().setScale(cam.zoom * 0.8f);
+        game.detailFont.setColor(Color.LIGHT_GRAY);
+        game.detailFont.draw(game.batch, "기록하기", cam.position.x - 125f * cam.zoom, bY + 35f * cam.zoom);
+
+        game.detailFont.setColor(Color.LIGHT_GRAY);
+        game.detailFont.draw(game.batch, "홈으로", cam.position.x + 50f * cam.zoom, bY + 35f * cam.zoom);
+
+        game.detailFont.setColor(Color.WHITE);
+        game.detailFont.getData().setScale(1.0f);
     }
 
-    // 스테이지 상세 정보 패널 그리기
+    // 선택된 스테이지의 상세 정보 패널 드로우
     private void drawInfoWindow() {
-        float winW = 550f, winH = 380f;
+        float winW = 550f, winH = 400f;
         float winX = nodePositions[selectedStageIndex][0] + 120f;
         float winY = nodePositions[selectedStageIndex][1] - winH / 2f;
         infoWindowRect.set(winX, winY, winW, winH);
 
         game.batch.draw(infoWindowTex, winX, winY, winW, winH);
-        game.detailFont2.draw(game.batch, "STAGE " + (selectedStageIndex + 1) + ": " + stageNames[selectedStageIndex], winX + 80, winY + winH - 100);
-        game.detailFont.draw(game.batch, stageBosses[selectedStageIndex], winX + 80, winY + winH - 160);
 
-        float btnW = 220f, btnH = 90f;
-        float btnX = winX + (winW - btnW) / 2f;
-        float btnY = winY + 50f;
-        startButtonRect.set(btnX, btnY, btnW, btnH);
-        game.batch.draw(moveBtnTex, btnX, btnY, btnW, btnH);
+        float padding = 70f;
+        // 스테이지 정보 텍스트 (순서: 스테이지 번호 -> 이름 -> 보스)
+        game.detailFont2.draw(game.batch, "STAGE " + (selectedStageIndex + 1), winX + padding, winY + winH - 100);
+        game.mainFont.getData().setScale(0.7f);
+        game.mainFont.draw(game.batch, stageNames[selectedStageIndex], winX + padding, winY + winH - 150);
+        game.mainFont.getData().setScale(1.0f);
+
+        game.detailFont.setColor(Color.GOLDENROD);
+        game.detailFont.draw(game.batch, stageBosses[selectedStageIndex], winX + padding, winY + winH - 210);
+        game.detailFont.setColor(Color.WHITE);
+
+        // 전투 시작(이동) 버튼 이미지 영역 설정
+        startButtonRect.set(winX + (winW - 280) / 2f, winY + 50, 280, 90);
+        game.batch.draw(moveBtnTex, startButtonRect.x, startButtonRect.y, startButtonRect.width, startButtonRect.height);
     }
 
     @Override
-    public void resize(int width, int height) { viewport.update(width, height); }
-
-    @Override
-    public void hide() {
-        // 스크린이 비활성화될 때 입력 프로세서 해제
-        Gdx.input.setInputProcessor(null);
+    public void resize(int width, int height) {
+        viewport.update(width, height);
     }
 
     @Override
