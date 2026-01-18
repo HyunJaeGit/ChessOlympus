@@ -93,13 +93,24 @@ public class StageMapScreen extends ScreenAdapter {
 
     @Override
     public void show() {
-        // 화면 진입 시 입력 처리기 활성화 및 배경음악 상태 체크
-        setupInputProcessor();
-        if (game.menuBgm != null && !game.menuBgm.isPlaying()) {
-            game.menuBgm.setLooping(true);
-            game.menuBgm.setVolume(game.globalVolume);
-            game.menuBgm.play();
+        // 1. 배경음악 중복 방지 및 재생 처리
+        if (game.menuBgm != null) {
+            if (!game.menuBgm.isPlaying()) {
+                game.menuBgm.setLooping(true);
+                game.menuBgm.setVolume(game.globalVolume);
+                game.menuBgm.play();
+            } else {
+                game.menuBgm.setVolume(game.globalVolume);
+            }
         }
+
+        // 2. 배틀 음악이 남아있다면 정지 (안전장치)
+        if (game.battleBgm != null && game.battleBgm.isPlaying()) {
+            game.battleBgm.stop();
+        }
+
+        // 3. [중요] 입력 프로세서를 마지막에 설정하여 조작권 보장
+        setupInputProcessor();
     }
 
     // 터치 및 드래그, 스크롤 입력 로직 정의

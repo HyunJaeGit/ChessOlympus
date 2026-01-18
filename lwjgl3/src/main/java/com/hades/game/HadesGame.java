@@ -86,6 +86,21 @@ public class HadesGame extends Game {
         playClick(1.0f);
     }
 
+    public void playMusic(Music targetMusic) {
+        // 1. 모든 배경음악 후보군을 일괄 정지
+        if (menuBgm != null) menuBgm.stop();
+        if (battleBgm != null) battleBgm.stop();
+        if (currentBgm != null) currentBgm.stop();
+
+        // 2. 새로운 음악 할당 및 재생
+        if (targetMusic != null) {
+            currentBgm = targetMusic; // 현재 재생 중인 음악 추적
+            currentBgm.setLooping(true);
+            currentBgm.setVolume(globalVolume);
+            currentBgm.play();
+        }
+    }
+
     // [수정] 외부 RunState 클래스 타입으로 로드합니다.
     public void loadGame() {
         com.badlogic.gdx.files.FileHandle file = Gdx.files.local("save/run_data.json");

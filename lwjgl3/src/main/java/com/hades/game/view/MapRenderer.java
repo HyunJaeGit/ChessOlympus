@@ -101,7 +101,7 @@ public class MapRenderer {
         Gdx.gl.glLineWidth(1f);
     }
 
-    // [신규] 스킬 장전 시 주황색 사거리 가이드 표시
+    // 스킬 장전 시 주황색 사거리 가이드 표시
     public void drawSkillRange(Unit unit, int skillRange) {
         if (unit == null) return;
         Gdx.gl.glEnable(GL20.GL_BLEND);
