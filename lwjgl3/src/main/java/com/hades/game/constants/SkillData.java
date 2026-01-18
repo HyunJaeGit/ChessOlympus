@@ -36,7 +36,7 @@ public class SkillData {
         addSkill("망자의 원한", "자신 주변 8칸에 원혼의 대폭발을 해방 (계수:2.5)", 2.5f, 1, true, Shape.SQUARE);
 
         // --- [제우스 영웅 스킬] ---
-        addSkill("심판의 번개", "체력이 가장 낮은 적을 추격하는 벼락 (계수:1.5)", 1.5f, 99, false, Shape.GLOBAL);
+        addSkill("심판의 번개", "체력이 가장 낮은 적을 추격하는 벼락 (계수:1.5)", 1.0f, 99, false, Shape.GLOBAL);
         addSkill("매혹의 향기", "주변 8칸 아군을 성스러운 힘으로 치유 (계수:0.8)", 0.8f, 2, true, Shape.SQUARE);
         addSkill("여왕의 권위", "십자 방향 적들을 압박하여 위축시킴 (계수:1.1)", 1.1f, 2, true, Shape.CROSS);
         addSkill("달빛의 추격", "매우 긴 사거리에서 일직선 정밀 저격 (계수:1.3)", 1.3f, 6, false, Shape.LINE);
