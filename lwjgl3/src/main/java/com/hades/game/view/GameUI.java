@@ -16,7 +16,6 @@ import com.hades.game.constants.SkillData;
 import com.hades.game.entities.Unit;
 
 /**
- * Chess Olympus: HADES vs ZEUS
  * 게임의 모든 UI를 렌더링하는 클래스입니다.
  * 폰트 엔진 충돌 방지를 위해 Pending Queue 시스템이 도입되었습니다.
  */
