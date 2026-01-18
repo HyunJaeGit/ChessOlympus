@@ -7,50 +7,26 @@ import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.hades.game.constants.RunState; // 외부 패키지의 RunState를 임포트
+import com.hades.game.constants.UnitData;
 import com.hades.game.screens.MenuScreen;
 import com.hades.game.utils.FontFactory;
 
-// 게임의 메인 진입점이며 공용 자원(폰트, 사운드, BGM)을 관리합니다.
 public class HadesGame extends Game {
 
     public SpriteBatch batch;
     public BitmapFont font, mainFont, detailFont, titleFont, subtitleFont,
         unitFont, detailFont2, unitFont2, unitFont3, cardFont, battleFont;
+
     public Sound clickSound;
-    // 배경음악 관리용 객체
     public Music menuBgm;
     public Music battleBgm;
-    // 스테이지별 동적 배경음악을 관리하기 위한 변수
     public Music currentBgm;
 
-    public int soulFragments = 0; // 보유한 영혼 파편
-    public int olympusSeals = 0;  // 보유한 올림포스 인장
-
-    // 전역 볼륨 설정 (0.0 ~ 1.0)
     public float globalVolume = 0.1f;
 
-    private void loadBackgroundMusic() {
-        if (Gdx.files.internal("music/bgm.mp3").exists()) {
-            menuBgm = Gdx.audio.newMusic(Gdx.files.internal("music/bgm.mp3"));
-            menuBgm.setLooping(true);
-            menuBgm.setVolume(globalVolume);
-        }
-
-        if (Gdx.files.internal("music/bgm-battle.mp3").exists()) {
-            battleBgm = Gdx.audio.newMusic(Gdx.files.internal("music/bgm-battle.mp3"));
-            battleBgm.setLooping(true);
-            battleBgm.setVolume(globalVolume);
-        }
-    }
-
-    // 볼륨 일괄 업데이트 메서드
-    public void updateVolume(float volume) {
-        this.globalVolume = volume;
-        if (menuBgm != null) menuBgm.setVolume(volume);
-        if (battleBgm != null) battleBgm.setVolume(volume);
-        // 현재 재생 중인 스테이지 음악에도 볼륨 적용
-        if (currentBgm != null) currentBgm.setVolume(volume);
-    }
+    // [수정] 내부 클래스 RunState 정의를 삭제하고 외부 클래스를 사용합니다.
+    public RunState runState = new RunState();
 
     @Override
     public void create() {
@@ -72,9 +48,8 @@ public class HadesGame extends Game {
         if (Gdx.files.internal(soundPath).exists()) {
             try {
                 clickSound = Gdx.audio.newSound(Gdx.files.internal(soundPath));
-                Gdx.app.log("HadesGame", "Sound loaded: " + soundPath);
             } catch (Exception e) {
-                Gdx.app.error("HadesGame", "Critical: Failed to load sound - " + e.getMessage());
+                Gdx.app.error("HadesGame", "Sound load error: " + e.getMessage());
             }
         }
 
@@ -82,18 +57,54 @@ public class HadesGame extends Game {
         this.setScreen(new MenuScreen(this));
     }
 
-    public void playClick(float pitch) {
-        if (clickSound != null) {
-            clickSound.play(globalVolume, pitch, 0);
+    private void loadBackgroundMusic() {
+        if (Gdx.files.internal("music/bgm.mp3").exists()) {
+            menuBgm = Gdx.audio.newMusic(Gdx.files.internal("music/bgm.mp3"));
+            menuBgm.setLooping(true);
+            menuBgm.setVolume(globalVolume);
         }
+
+        if (Gdx.files.internal("music/bgm-battle.mp3").exists()) {
+            battleBgm = Gdx.audio.newMusic(Gdx.files.internal("music/bgm-battle.mp3"));
+            battleBgm.setLooping(true);
+            battleBgm.setVolume(globalVolume);
+        }
+    }
+
+    public void updateVolume(float volume) {
+        this.globalVolume = volume;
+        if (menuBgm != null) menuBgm.setVolume(volume);
+        if (battleBgm != null) battleBgm.setVolume(volume);
+        if (currentBgm != null) currentBgm.setVolume(volume);
+    }
+
+    public void playClick(float pitch) {
+        if (clickSound != null) clickSound.play(globalVolume, pitch, 0);
     }
 
     public void playClick() {
         playClick(1.0f);
     }
 
+    // [수정] 외부 RunState 클래스 타입으로 로드합니다.
+    public void loadGame() {
+        com.badlogic.gdx.files.FileHandle file = Gdx.files.local("save/run_data.json");
+        if (file.exists()) {
+            com.badlogic.gdx.utils.Json json = new com.badlogic.gdx.utils.Json();
+            this.runState = json.fromJson(RunState.class, file.readString());
+            Gdx.app.log("SAVE_SYSTEM", "불러오기 완료");
+        }
+    }
+
+    public void saveGame() {
+        com.badlogic.gdx.utils.Json json = new com.badlogic.gdx.utils.Json();
+        Gdx.files.local("save/run_data.json").writeString(json.prettyPrint(runState), false);
+        Gdx.app.log("SAVE_SYSTEM", "저장 완료");
+    }
+
     @Override
     public void dispose() {
+        if (batch != null) batch.dispose();
         if (titleFont != null) titleFont.dispose();
         if (subtitleFont != null) subtitleFont.dispose();
         if (mainFont != null) mainFont.dispose();
@@ -103,21 +114,12 @@ public class HadesGame extends Game {
         if (unitFont2 != null) unitFont2.dispose();
         if (unitFont3 != null) unitFont3.dispose();
         if (cardFont != null) cardFont.dispose();
+        if (battleFont != null) battleFont.dispose();
 
         if (clickSound != null) clickSound.dispose();
-        if (menuBgm != null) {
-            menuBgm.stop();
-            menuBgm.dispose();
-        }
-        if (battleBgm != null) {
-            battleBgm.stop();
-            battleBgm.dispose();
-        }
-        // 동적 배경음악 자원 해제
-        if (currentBgm != null) {
-            currentBgm.stop();
-            currentBgm.dispose();
-        }
+        if (menuBgm != null) menuBgm.dispose();
+        if (battleBgm != null) battleBgm.dispose();
+        if (currentBgm != null) currentBgm.dispose();
 
         if (getScreen() != null) getScreen().dispose();
     }

@@ -1,0 +1,15 @@
+{
+selectedHeroName: 연초록
+selectedFaction: HADES
+heroStat: {
+	hp: 500
+	atk: 30
+	counterAtk: 70
+	move: 2
+	range: 1
+	value: 1000
+	learnedSkills: [
+		기본 공격
+	]
+}
+}

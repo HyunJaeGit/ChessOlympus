@@ -5,7 +5,7 @@ import com.hades.game.constants.GameConfig;
 import com.hades.game.constants.UnitData;
 import com.hades.game.entities.Unit;
 
-// 스테이지 레벨에 맞춰 유닛 구성을 생성해주는 클래스입니다.
+// Chess Olympus: HADES vs ZEUS - 스테이지 생성기
 public class StageGenerator {
 
     public static Array<Unit> create(int stageLevel, String playerTeam, String heroName, UnitData.Stat heroStat) {
@@ -22,10 +22,10 @@ public class StageGenerator {
     }
 
     private static void setupPlayerUnits(Array<Unit> units, String team, String name, UnitData.Stat stat) {
-        // 영웅은 항상 중앙(3, 0)
+        // 영웅은 항상 중앙 하단 (3, 0)
         units.add(new Unit(name, team, stat, name, Unit.UnitClass.HERO, 3, 0));
 
-        // 기본 병사들 (고정 배치 혹은 로직에 따른 배치)
+        // 기본 아군 병사들 배치
         units.add(new Unit("기병", team, UnitData.STAT_KNIGHT, UnitData.IMG_KNIGHT, Unit.UnitClass.KNIGHT, 0, 0));
         units.add(new Unit("궁병", team, UnitData.STAT_ARCHER, UnitData.IMG_ARCHER, Unit.UnitClass.ARCHER, 1, 0));
         units.add(new Unit("방패병", team, UnitData.STAT_SHIELD, UnitData.IMG_SHIELD, Unit.UnitClass.SHIELD, 2, 0));
@@ -37,12 +37,17 @@ public class StageGenerator {
     private static void setupEnemyUnits(Array<Unit> units, String team, int stageLevel) {
         int enemyRow = GameConfig.BOARD_HEIGHT - 1;
 
-        // 보스(영웅) 결정
-        int bossIdx = Math.min(stageLevel - 1, UnitData.STATS_ZEUS.length - 1);
-        String bossName = UnitData.NAMES_ZEUS[bossIdx];
-        units.add(new Unit(bossName, team, UnitData.STATS_ZEUS[bossIdx], bossName, Unit.UnitClass.HERO, 3, enemyRow));
+        // [수정] 적군 진영에 맞는 보스 스탯과 이름 로드
+        String[] enemyHeroNames = team.equals("HADES") ? UnitData.NAMES_HADES : UnitData.NAMES_ZEUS;
+        UnitData.Stat[] enemyHeroStats = team.equals("HADES") ? UnitData.STATS_HADES : UnitData.STATS_ZEUS;
 
-        // 적 병졸 배치 (스테이지 레벨이 높아질수록 구성을 바꿀 수도 있음)
+        int bossIdx = Math.min(stageLevel - 1, enemyHeroStats.length - 1);
+        String bossName = enemyHeroNames[bossIdx];
+
+        // 적군 보스 배치
+        units.add(new Unit(bossName, team, enemyHeroStats[bossIdx], bossName, Unit.UnitClass.HERO, 3, enemyRow));
+
+        // 적군 일반병 배치
         units.add(new Unit("적 궁병", team, UnitData.STAT_ARCHER, UnitData.IMG_ARCHER, Unit.UnitClass.ARCHER, 0, enemyRow));
         units.add(new Unit("적 기병", team, UnitData.STAT_KNIGHT, UnitData.IMG_KNIGHT, Unit.UnitClass.KNIGHT, 1, enemyRow));
         units.add(new Unit("적 방패병", team, UnitData.STAT_SHIELD, UnitData.IMG_SHIELD, Unit.UnitClass.SHIELD, 2, enemyRow));
