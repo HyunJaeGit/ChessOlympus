@@ -358,6 +358,7 @@ public class BattleScreen extends ScreenAdapter {
             UI.addHoverEffect(game, upgradeBtn, Color.valueOf("4FB9AF"), Color.WHITE);
             table.add(upgradeBtn).padBottom(20).row();
         } else {
+
             // 재도전 버튼
             Label retryBtn = new Label("[ RE-TRY ]", new Label.LabelStyle(game.mainFont, Color.WHITE));
             retryBtn.addListener(new ClickListener() {
@@ -383,6 +384,20 @@ public class BattleScreen extends ScreenAdapter {
         });
         UI.addHoverEffect(game, homeBtn, Color.LIGHT_GRAY, Color.WHITE);
         table.add(homeBtn);
+
+
+        // 3. 메인 메뉴로 돌아가기 (홈 버튼)
+        Label titleBtn = new Label("[ RETURN TO TITLE ]", new Label.LabelStyle(game.mainFont, Color.valueOf("7F8C8D")));
+        titleBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                game.playClick();
+                resetMusicToHome();
+                game.setScreen(new MenuScreen(game)); // 타이틀 화면으로 이동
+            }
+        });
+        UI.addHoverEffect(game, titleBtn, Color.valueOf("7F8C8D"), Color.WHITE);
+        table.add(titleBtn);
 
         stage.addActor(table);
         Gdx.input.setInputProcessor(stage);
