@@ -86,6 +86,55 @@ public class UnitRenderer {
         drawDamagePopups(unit, screenPos);
     }
 
+    // rederBody 메서드가 몸통을 그린뒤 스킬 말풍선이 출력되도록 해야 보임
+    public void renderSpeechBubble(Unit unit) {
+        if (unit.speechText != null && unit.speechTimer > 0) {
+            Vector2 screenPos = IsoUtils.gridToScreen(unit.gridX, unit.gridY);
+            // 애니메이션 오프셋까지 적용된 위치에 말풍선 렌더링
+            drawSpeechBubble(unit, screenPos.x + unit.animOffset.x, screenPos.y + unit.animOffset.y);
+        }
+    }
+
+    // 영웅 스킬 발동시 말풍선
+    private void drawSpeechBubble(Unit unit, float x, float y) {
+        String text = unit.speechText;
+        layout.setText(font, text);
+
+        float bubbleW = layout.width + 20f;
+        float bubbleH = layout.height + 15f;
+        float bubbleX = x - (bubbleW / 2f);
+        float bubbleY = y + 115f; // 이름표보다 높은 위치
+
+        // 말풍선 배경 그리기
+        if (batch.isDrawing()) batch.end();
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+
+        // 사라질 때 같이 페이드되도록 알파값 계산
+        float bubbleAlpha = Math.min(0.7f, unit.speechTimer);
+
+        // 1. 배경 박스 그리기 (Filled)
+        shape.begin(ShapeRenderer.ShapeType.Filled);
+        shape.setColor(0, 0, 0, bubbleAlpha);
+        shape.rect(bubbleX, bubbleY, bubbleW, bubbleH);
+        shape.end();
+
+        // 2. 테두리 그리기 (Line)
+        shape.begin(ShapeRenderer.ShapeType.Line);
+        Color borderColor = unit.team.equals(playerTeam) ? Color.CYAN : Color.GOLD;
+        shape.setColor(borderColor.r, borderColor.g, borderColor.b, bubbleAlpha);
+        shape.rect(bubbleX, bubbleY, bubbleW, bubbleH);
+        shape.end();
+
+        batch.begin();
+
+        // 텍스트 출력 (부드러운 페이드 아웃)
+        float textAlpha = Math.min(1.0f, unit.speechTimer / 0.5f);
+        font.setColor(1, 1, 1, textAlpha);
+        font.draw(batch, text, bubbleX + 10f, bubbleY + bubbleH - 7f);
+        font.setColor(Color.WHITE);
+    }
+
     // 데미지 숫자를 화면에 그립니다.
     private void drawDamagePopups(Unit unit, Vector2 basePos) {
         for (int i = 0; i < unit.damageTexts.size; i++) {

@@ -66,6 +66,11 @@ public class Unit implements Disposable {
 
     // [추가] 데미지 텍스트 리스트
     public Array<DamageText> damageTexts = new Array<>();
+
+    // // [추가] 말풍선(Speech Bubble) 관련 변수
+    public String speechText = null;
+    public float speechTimer = 0;
+    private final float SPEECH_DURATION = 1.5f; // 말풍선 표시 시간
     // ----------------------
 
     public Unit(String name, String team, UnitData.Stat stat, String imageKey, UnitClass unitClass, int x, int y) {
@@ -96,6 +101,12 @@ public class Unit implements Disposable {
         playHitAnim();
     }
 
+    // // 유닛이 말풍선 대사를 하도록 설정하는 메서드
+    public void say(String text) {
+        this.speechText = text;
+        this.speechTimer = SPEECH_DURATION;
+    }
+
     // 매 프레임 유닛의 상태와 애니메이션을 업데이트합니다.
     public void update(float delta) {
         // 1. 피격 깜빡임 타이머
@@ -110,6 +121,12 @@ public class Unit implements Disposable {
             animOffset.set(attackDir.x * jumpDist * curve, attackDir.y * jumpDist * curve);
         } else {
             animOffset.set(0, 0);
+        }
+
+        // // [추가] 말풍선 타이머 업데이트
+        if (speechTimer > 0) {
+            speechTimer -= delta;
+            if (speechTimer <= 0) speechText = null;
         }
 
         // 3. 데미지 텍스트 업데이트 (인덱스 기반 루프로 에러 방지)

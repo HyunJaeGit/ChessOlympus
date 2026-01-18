@@ -149,8 +149,13 @@ public class BattleScreen extends ScreenAdapter {
         }
 
         game.batch.begin();
-        for (Unit u : units) if (u.isAlive()) unitRenderer.renderShadow(u, selectedUnit);
-        for (Unit u : units) if (u.isAlive()) unitRenderer.renderBody(u, selectedUnit);
+
+        for (Unit u : units) if (u.isAlive()) unitRenderer.renderShadow(u, selectedUnit);   // 1. 모든 유닛의 그림자 먼저 렌더링
+        for (Unit u : units) if (u.isAlive()) unitRenderer.renderBody(u, selectedUnit);     // 2. 모든 유닛의 본체와 체력바 렌더링
+        for (Unit u : units) {
+            if (u.isAlive()) unitRenderer.renderSpeechBubble(u);    // 3. 말풍선을 가장 마지막에 렌더링 (유닛 본체에 가려지지 않도록 분리)
+        }
+        // 4. 게임 UI 렌더링
         gameUI.render(stageLevel, turnManager.getCurrentTurn(), playerTeam, menuHitbox, selectedUnit, mx, my);
         game.batch.end();
 
@@ -257,23 +262,37 @@ public class BattleScreen extends ScreenAdapter {
         }
         combatManager.processAutoAttack(units, unit.team);
     }
-
+    // 영웅 유닛의 특수 권능(스킬)을 실행합니다.
     private void executeHeroSkill(Unit hero, String skillName) {
         SkillData.Skill data = SkillData.get(skillName);
         boolean hasTarget = false;
+
+        // 기술 발동 시 유닛 머리 위에 기술명을 외치는 말풍선 생성
+        hero.say(skillName + "!!");
+
         for (Unit target : units) {
+            // 살아있는 적군인지 확인
             if (target.isAlive() && !target.team.equals(hero.team)) {
+                // 맨해튼 거리를 계산하여 사거리 내에 있는지 확인
                 int dist = Math.abs(hero.gridX - target.gridX) + Math.abs(hero.gridY - target.gridY);
+
                 if (dist <= data.range) {
+                    // 전투 매니저를 통해 실제 공격 로직 수행
                     combatManager.performAttack(hero, target);
                     hasTarget = true;
+
+                    // 광역기(AoE)가 아니면 첫 번째 대상을 공격한 후 루프 종료
                     if (!data.isAoE) break;
                 }
             }
         }
+
+        // 사거리 내에 대상이 없어 기술이 불발된 경우 시스템 메시지 출력
         if (!hasTarget && hero.team.equals(playerTeam)) {
             gameUI.addLog("사거리 내 적이 없어 " + skillName + " 취소", "SYSTEM", playerTeam);
         }
+
+        // 기술 사용 후 예약된 스킬 상태 초기화
         hero.stat.clearReservedSkill();
     }
 
