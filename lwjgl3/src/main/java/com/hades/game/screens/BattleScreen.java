@@ -42,6 +42,7 @@ public class BattleScreen extends ScreenAdapter {
     private MapRenderer mapRenderer;
     private UnitRenderer unitRenderer;
     private GameUI gameUI;
+    private boolean showHelp = false; // 도움말 창 활성화 상태를 저장하는 변수
 
     private Texture battleBg;
     private Texture tileTop;
@@ -192,8 +193,8 @@ public class BattleScreen extends ScreenAdapter {
         for (Unit u : units) {
             if (u.isAlive()) unitRenderer.renderSpeechBubble(u);    // 3. 말풍선을 가장 마지막에 렌더링 (유닛 본체에 가려지지 않도록 분리)
         }
-        // 4. 게임 UI 렌더링
-        gameUI.render(stageLevel, turnManager.getCurrentTurn(), playerTeam, menuHitbox, selectedUnit, mx, my);
+        // 4. GameUI.java -> UI 렌더링
+        gameUI.render(stageLevel, turnManager.getCurrentTurn(), playerTeam, menuHitbox, selectedUnit, mx, my, showHelp);
         game.batch.end();
 
         if (gameOver) {

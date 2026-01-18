@@ -15,17 +15,21 @@ import com.hades.game.constants.GameConfig;
 import com.hades.game.constants.SkillData;
 import com.hades.game.entities.Unit;
 
-/**
- * 게임의 모든 UI를 렌더링하는 클래스입니다.
- * 폰트 엔진 충돌 방지를 위해 Pending Queue 시스템이 도입되었습니다.
- */
+// Chess Olympus: HADES vs ZEUS - 전투 화면 UI 렌더링 클래스
 public class GameUI implements Disposable {
     private final HadesGame game;
+
+    // 리소스 관련 변수
     private Texture logInfoBgTex;
     private NinePatch logPatch;
     private Texture stageInfoBg;
     private Texture timerBoxBg;
 
+    // HELP 버튼 관련 변수
+    private final float HELP_BTN_W = 120;
+    private final Rectangle helpBtnHitbox = new Rectangle();
+
+    // 로그 시스템 관련 클래스
     private static class LogEntry {
         final Color color;
         final GlyphLayout layout;
@@ -49,6 +53,7 @@ public class GameUI implements Disposable {
     private final Array<PendingLog> pendingQueue = new Array<>();
     private static final int MAX_LOGS = 12;
 
+    // 로그 영역 설정
     private final float LOG_AREA_X = 400;
     private final float LOG_AREA_Y = 10;
     private final float LOG_AREA_W = 800;
@@ -60,8 +65,7 @@ public class GameUI implements Disposable {
 
     private final Rectangle logHitbox = new Rectangle(LOG_AREA_X, LOG_AREA_Y, LOG_AREA_W, MIN_LOG_H);
 
-    // IDE 경고 반영: SKILL 관련 변수들은 메서드 내 지역변수로 처리 가능하지만,
-    // 가독성을 위해 상수로 유지하되 renderHeroSkills에서 활용합니다.
+    // 스킬 UI 배치 상수
     private final float SKILL_X = GameConfig.VIRTUAL_WIDTH - 280;
     private final float SKILL_Y = 500;
     private final float SKILL_H = 50;
@@ -85,11 +89,8 @@ public class GameUI implements Disposable {
 
     public void addLog(String message, String unitTeam, String playerTeam) {
         Color logColor = Color.LIGHT_GRAY;
-        if ("SYSTEM".equals(unitTeam)) {
-            logColor = Color.GOLD;
-        } else if (unitTeam != null && !unitTeam.equals(playerTeam)) {
-            logColor = Color.FIREBRICK;
-        }
+        if ("SYSTEM".equals(unitTeam)) logColor = Color.GOLD;
+        else if (unitTeam != null && !unitTeam.equals(playerTeam)) logColor = Color.FIREBRICK;
 
         synchronized (pendingQueue) {
             pendingQueue.add(new PendingLog(message, logColor));
@@ -108,15 +109,25 @@ public class GameUI implements Disposable {
         }
     }
 
-    public void render(int stageLevel, String currentTurn, String playerTeam, Rectangle menuHitbox, Unit selectedUnit, float mx, float my) {
+    // 메인 UI 렌더링
+    public void render(int stageLevel, String currentTurn, String playerTeam, Rectangle menuHitbox, Unit selectedUnit, float mx, float my, boolean showHelp) {
         flushLogs();
 
+        // 1. 상단 정보
         game.batch.draw(stageInfoBg, 20, GameConfig.VIRTUAL_HEIGHT - 80, 200, 60);
         game.unitFont2.setColor(Color.WHITE);
         game.unitFont2.draw(game.batch, "STAGE " + stageLevel, 60, GameConfig.VIRTUAL_HEIGHT - 40);
 
         game.unitFont2.setColor(currentTurn.equals(playerTeam) ? Color.LIME : Color.RED);
         game.unitFont2.draw(game.batch, currentTurn.equals(playerTeam) ? "YOUR TURN" : "ENEMY TURN", 40, GameConfig.VIRTUAL_HEIGHT - 110);
+
+        // 2. 상단 버튼 (HELP & WINDOW)
+        helpBtnHitbox.set(menuHitbox.x - HELP_BTN_W - 15, menuHitbox.y + 10, HELP_BTN_W, menuHitbox.height - 14);
+        game.batch.draw(timerBoxBg, helpBtnHitbox.x, helpBtnHitbox.y, helpBtnHitbox.width, helpBtnHitbox.height);
+
+        boolean isHelpHover = helpBtnHitbox.contains(mx, my);
+        game.unitFont3.setColor(isHelpHover ? Color.GOLD : Color.WHITE);
+        game.unitFont3.draw(game.batch, "HELP", helpBtnHitbox.x, helpBtnHitbox.y + 33, helpBtnHitbox.width, Align.center, false);
 
         game.batch.draw(timerBoxBg, menuHitbox.x, menuHitbox.y + 10, menuHitbox.width - 10, menuHitbox.height - 14);
         String mode = Gdx.graphics.isFullscreen() ? "WINDOW" : "FULLSCREEN";
@@ -125,11 +136,17 @@ public class GameUI implements Disposable {
 
         renderExpandableLog(mx, my);
 
+        // 3. 유닛 정보 및 스킬
         if (selectedUnit != null && selectedUnit.isAlive()) {
             renderUnitDetails(selectedUnit);
             if (selectedUnit.unitClass == Unit.UnitClass.HERO) {
                 renderHeroSkills(selectedUnit, mx, my, playerTeam);
             }
+        }
+
+        // 4. 도움말 오버레이
+        if (showHelp) {
+            renderHelpWindow();
         }
     }
 
@@ -155,8 +172,7 @@ public class GameUI implements Disposable {
     private void renderHeroSkills(Unit unit, float mx, float my, String playerTeam) {
         Array<String> allSkills = unit.stat.getLearnedSkills();
         Array<String> visibleSkills = new Array<>();
-        for (int i = 0; i < allSkills.size; i++) {
-            String s = allSkills.get(i);
+        for (String s : allSkills) {
             if (!s.equals("기본 공격")) visibleSkills.add(s);
         }
 
@@ -176,9 +192,8 @@ public class GameUI implements Disposable {
 
             game.batch.draw(timerBoxBg, rect.x, rect.y, rect.width, rect.height);
 
-            if (!isPlayerUnit) {
-                game.unitFont3.setColor(Color.WHITE);
-            } else {
+            if (!isPlayerUnit) game.unitFont3.setColor(Color.WHITE);
+            else {
                 if (!unit.stat.isSkillReady(skillName)) game.unitFont3.setColor(Color.GRAY);
                 else if (skillName.equals(reserved)) game.unitFont3.setColor(Color.YELLOW);
                 else game.unitFont3.setColor(Color.WHITE);
@@ -199,18 +214,42 @@ public class GameUI implements Disposable {
         float ty = my - 100;
 
         game.batch.draw(logInfoBgTex, tx, ty, tw, th);
-
-        float marginLeft = 60, marginTop = 55, lineSpacing = 35;
+        float marginLeft = 60, marginTop = 55;
         float currentY = ty + th - marginTop;
 
         game.unitFont3.setColor(Color.CYAN);
         game.unitFont3.draw(game.batch, "[" + data.name + "]", tx + marginLeft, currentY);
-        currentY -= lineSpacing;
+        currentY -= 35;
         game.unitFont3.setColor(Color.ORANGE);
         game.unitFont3.draw(game.batch, "위력: " + (int)(data.power * 100) + "% | 사거리: " + data.range, tx + marginLeft, currentY);
-        currentY -= lineSpacing;
+        currentY -= 35;
         game.unitFont3.setColor(Color.WHITE);
         game.unitFont3.draw(game.batch, data.description, tx + marginLeft, currentY, tw - (marginLeft * 2), Align.left, true);
+    }
+
+    // 도움말 창 렌더링
+    private void renderHelpWindow() {
+        float winW = 850;
+        float winH = 500;
+        float winX = (GameConfig.VIRTUAL_WIDTH - winW) / 2;
+        float winY = (GameConfig.VIRTUAL_HEIGHT - winH) / 2;
+
+        game.batch.setColor(0, 0, 0, 0.9f);
+        logPatch.draw(game.batch, winX, winY, winW, winH);
+        game.batch.setColor(Color.WHITE);
+
+        float textX = winX + 60;
+        float startY = winY + winH - 60;
+
+        game.unitFont2.setColor(Color.GOLD);
+        game.unitFont2.draw(game.batch, "== GAME RULES & CONTROLS ==", textX, startY);
+
+        game.unitFont3.setColor(Color.WHITE);
+        String help = "\n[ 이동 및 공격 ]\n- 좌클릭으로 아군 선택 후 이동 타일 클릭\n- 이동 후 자동 공격\n\n[ 권능 사용 ]\n- 스킬 클릭하여 '장전' 후 이동\n\n[ 카메라 ]\n- 휠: 줌 | 우클릭 드래그: 이동 (떼면 복귀)";
+        game.unitFont3.draw(game.batch, help, textX, startY - 40, winW - 120, Align.left, true);
+
+        game.unitFont3.setColor(Color.GRAY);
+        game.unitFont3.draw(game.batch, "(화면 아무 곳이나 클릭하여 닫기)", winX, winY + 50, winW, Align.center, false);
     }
 
     public String getClickedSkill(float mx, float my, Unit unit) {
@@ -229,6 +268,10 @@ public class GameUI implements Disposable {
         return null;
     }
 
+    public boolean isHelpClicked(float mx, float my) {
+        return helpBtnHitbox.contains(mx, my);
+    }
+
     private void renderUnitDetails(Unit unit) {
         if (unit.portrait != null) game.batch.draw(unit.portrait, 10, 20, 300, 420);
         game.cardFont.setColor(Color.WHITE);
@@ -237,7 +280,6 @@ public class GameUI implements Disposable {
         game.cardFont.draw(game.batch, "CTK: " + unit.stat.counterAtk(), 55, 105);
         game.cardFont.setColor(Color.SKY);
         game.cardFont.draw(game.batch, "RNG: " + unit.stat.range(), 200, 105);
-        game.cardFont.setColor(Color.WHITE);
     }
 
     @Override
