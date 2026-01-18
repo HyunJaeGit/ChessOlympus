@@ -326,45 +326,48 @@ public class BattleScreen extends ScreenAdapter {
         table.setFillParent(true);
         table.center();
 
+        // 1. 결과 타이틀 (VICTORY / DEFEAT)
         Label titleLabel = new Label(isVictory ? "VICTORY!" : "DEFEAT...",
             new Label.LabelStyle(game.titleFont, isVictory ? Color.GOLD : Color.FIREBRICK));
-        table.add(titleLabel).padBottom(60).row();
+        table.add(titleLabel).padBottom(50).row();
 
+        // 2. 승리 시 보상 및 특수 버튼 섹션
         if (isVictory) {
-            // 보상 계산 및 RunState 업데이트
+            // 보상 계산 및 RunState 업데이트 (로직 유지)
             int rewardSouls = (int)(Math.random() * 3) + 1;
             game.runState.soulFragments += rewardSouls;
             game.runState.olympusSeals += 1;
 
-            // 스테이지 클리어 진행도 갱신
             if (game.runState.currentStageLevel <= stageLevel) {
                 game.runState.currentStageLevel = stageLevel + 1;
             }
-
             game.saveGame();
 
             Label rewardLabel = new Label("보상: 영혼 파편 +" + rewardSouls + ", 인장 +1", new Label.LabelStyle(game.mainFont, Color.CYAN));
-            table.add(rewardLabel).padBottom(20).row();
+            table.add(rewardLabel).padBottom(30).row();
 
-            // 업그레이드 화면(제단)으로 이동 버튼
+            // [주요 버튼] 명계의 제단으로 (강화 화면)
             Label upgradeBtn = new Label("[ 명계의 제단으로 ]", new Label.LabelStyle(game.mainFont, Color.valueOf("4FB9AF")));
             upgradeBtn.addListener(new ClickListener() {
                 @Override
                 public void clicked(InputEvent event, float x, float y) {
                     game.playClick();
+                    // 음악 중지 로직을 Screen 전환 직전에 실행
+                    stopBattleMusic();
                     game.setScreen(new UpgradeScreen(game, heroName, game.runState.heroStat, stageLevel));
                 }
             });
             UI.addHoverEffect(game, upgradeBtn, Color.valueOf("4FB9AF"), Color.WHITE);
             table.add(upgradeBtn).padBottom(20).row();
         } else {
-
-            // 재도전 버튼
+            // [주요 버튼] 패배 시 재도전
             Label retryBtn = new Label("[ RE-TRY ]", new Label.LabelStyle(game.mainFont, Color.WHITE));
             retryBtn.addListener(new ClickListener() {
                 @Override
                 public void clicked(InputEvent event, float x, float y) {
                     game.playClick();
+                    // 음악 중지 로직을 Screen 전환 직전에 실행
+                    stopBattleMusic();
                     game.setScreen(new BattleScreen(game, playerTeam, heroName, heroStat, stageLevel));
                 }
             });
@@ -372,42 +375,57 @@ public class BattleScreen extends ScreenAdapter {
             table.add(retryBtn).padBottom(20).row();
         }
 
-        // 스테이지 맵으로 돌아가기 버튼
-        Label homeBtn = new Label("[ BACK TO MAP ]", new Label.LabelStyle(game.mainFont, Color.LIGHT_GRAY));
+        // 3. 서브 메뉴 섹션 (이동 관련)
+
+        // 스테이지 맵으로 돌아가기
+        Label homeBtn = new Label("[ GO TO MAP ]", new Label.LabelStyle(game.mainFont, Color.LIGHT_GRAY));
         homeBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
                 game.playClick();
+                // 음악 중지 로직을 Screen 전환 직전에 실행
+                stopBattleMusic();
                 resetMusicToHome();
                 game.setScreen(new StageMapScreen(game));
             }
         });
         UI.addHoverEffect(game, homeBtn, Color.LIGHT_GRAY, Color.WHITE);
-        table.add(homeBtn);
+        table.add(homeBtn).padBottom(20).row(); // row() 추가하여 수직 정렬
 
-
-        // 3. 메인 메뉴로 돌아가기 (홈 버튼)
-        Label titleBtn = new Label("[ HOME ]", new Label.LabelStyle(game.mainFont, Color.valueOf("7F8C8D")));
+        // 타이틀(메인 메뉴)로 돌아가기
+        Label titleBtn = new Label("[ RETURN HOME ]", new Label.LabelStyle(game.mainFont, Color.valueOf("7F8C8D")));
         titleBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
                 game.playClick();
                 resetMusicToHome();
-                game.setScreen(new MenuScreen(game)); // 타이틀 화면으로 이동
+                game.setScreen(new MenuScreen(game));
             }
         });
         UI.addHoverEffect(game, titleBtn, Color.valueOf("7F8C8D"), Color.WHITE);
-        table.add(titleBtn);
+        table.add(titleBtn).padBottom(10); // 마지막 버튼
 
         stage.addActor(table);
         Gdx.input.setInputProcessor(stage);
     }
 
+    // 전투 음악만 확실히 끄는 메서드
+    private void stopBattleMusic() {
+        if (game.battleBgm != null && game.battleBgm.isPlaying()) {
+            game.battleBgm.stop();
+        }
+    }
+
+    // 홈/맵으로 돌아갈 때 음악 상태를 정리하는 메서드
     private void resetMusicToHome() {
-        if (game.battleBgm != null) game.battleBgm.stop();
+        stopBattleMusic();
         if (game.menuBgm != null) {
-            game.menuBgm.setVolume(game.globalVolume);
-            game.menuBgm.play();
+            // 중복 재생 방지: 이미 재생 중이면 다시 play 하지 않음
+            if (!game.menuBgm.isPlaying()) {
+                game.menuBgm.setLooping(true);
+                game.menuBgm.setVolume(game.globalVolume);
+                game.menuBgm.play();
+            }
         }
     }
 
