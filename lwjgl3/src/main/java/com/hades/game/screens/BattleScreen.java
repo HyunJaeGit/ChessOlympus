@@ -12,6 +12,7 @@ import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.viewport.FitViewport;
@@ -20,12 +21,7 @@ import com.hades.game.constants.GameConfig;
 import com.hades.game.constants.SkillData;
 import com.hades.game.constants.UnitData;
 import com.hades.game.entities.Unit;
-import com.hades.game.logic.AILogic;
-import com.hades.game.logic.BoardManager;
-import com.hades.game.logic.IsoUtils;
-import com.hades.game.logic.TurnManager;
-import com.hades.game.logic.CombatManager;
-import com.hades.game.logic.StageGenerator;
+import com.hades.game.logic.*;
 import com.hades.game.view.GameUI;
 import com.hades.game.view.MapRenderer;
 import com.hades.game.view.UnitRenderer;
@@ -36,7 +32,8 @@ import com.hades.game.view.UI;
 public class BattleScreen extends ScreenAdapter {
     private final HadesGame game;
     private ShapeRenderer shape;
-    private Stage stage;
+    private final Stage stage;
+    private CameraManager cameraManager;
     private Array<Unit> units;
     private Vector2 hoveredGrid = new Vector2(-1, -1);
     private Unit selectedUnit = null;
@@ -84,14 +81,41 @@ public class BattleScreen extends ScreenAdapter {
         gameUI.addLog("STAGE " + stageLevel + " 전투 시작!", "SYSTEM", playerTeam);
     }
 
+    // [show] 화면이 나타날 때 실행되는 메서드
     @Override
     public void show() {
+        // 스테이지의 입력 프로세서를 설정합니다.
         Gdx.input.setInputProcessor(stage);
-        // 배경음악 전환
-        if (game.menuBgm != null && game.menuBgm.isPlaying()) game.menuBgm.stop();
-        if (game.battleBgm != null && !game.battleBgm.isPlaying()) {
-            game.battleBgm.setVolume(game.globalVolume);
-            game.battleBgm.play();
+
+        // [추가] 휠 스크롤 입력을 CameraManager와 연결
+        stage.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
+            @Override
+            public boolean scrolled(com.badlogic.gdx.scenes.scene2d.InputEvent event, float x, float y, float amountX, float amountY) {
+                cameraManager.handleScroll(amountY);
+                return true;
+            }
+        });
+
+        // 1. CutsceneManager에서 현재 스테이지 레벨에 해당하는 데이터
+        com.hades.game.screens.cutscene.CutsceneData data =
+            com.hades.game.screens.cutscene.CutsceneManager.getStageData(stageLevel);
+
+        if (data != null && data.bgmPath() != null) {
+            // 2. 현재 로드된 음악과 스테이지 데이터의 음악 경로가 다른지 확인
+            if (game.battleBgm == null || !Gdx.files.internal(data.bgmPath()).path().equals(data.bgmPath())) {
+
+                // 기존에 사용하던 음악 객체가 있다면 메모리에서 해제(dispose)합니다. (메모리 누수 방지)
+                if (game.battleBgm != null) {
+                    game.battleBgm.dispose();
+                }
+
+                // 새로운 경로의 음악 파일을 생성하여 game.battleBgm 바구니에 담습니다.
+                game.battleBgm = Gdx.audio.newMusic(Gdx.files.internal(data.bgmPath()));
+            }
+
+            // 다른 음악을 모두 정지(stop)시키고
+            // 새로운 배틀 음악만 깔끔하게 재생하여 소리 겹침 현상을 방지합니다.
+            game.playMusic(game.battleBgm);
         }
     }
 
@@ -105,6 +129,8 @@ public class BattleScreen extends ScreenAdapter {
         mapRenderer = new MapRenderer(shape, game.batch, tileTop);
         unitRenderer = new UnitRenderer(game.batch, shape, game.battleFont, playerTeam);
         gameUI = new GameUI(game);
+        // stage의 카메라를 OrthographicCamera로 캐스팅하여 매니저에 넘겨줍니다.
+        cameraManager    = new CameraManager((OrthographicCamera) stage.getCamera());
 
         if (heroStat != null) {
             heroStat.resetSkillStatus();
@@ -118,6 +144,17 @@ public class BattleScreen extends ScreenAdapter {
 
     @Override
     public void render(float delta) {
+        // 카메라 상태(줌 보간 등) 업데이트
+        cameraManager.update();
+
+        // 우클릭 드래그시 화면이동 처리
+        if (Gdx.input.isButtonPressed(com.badlogic.gdx.Input.Buttons.RIGHT)) {
+            cameraManager.handlePan(Gdx.input.getDeltaX(), Gdx.input.getDeltaY());
+        } else {
+            // [추가] 우클릭을 떼면 복귀 로직 활성화
+            cameraManager.stopPanning();
+        }
+
         for (Unit u : units) u.update(delta);
         update(delta);
         cleanupDeadUnits();
@@ -296,71 +333,93 @@ public class BattleScreen extends ScreenAdapter {
         hero.stat.clearReservedSkill();
     }
 
-    // 유닛 사망 시 호출되는 콜백
+    // [handleDeath] 유닛이 사망할 때마다 호출되어 승패를 판정하는 핵심 로직입니다.
     private void handleDeath(Unit target) {
-        target.status = Unit.DEAD;
+        target.status = Unit.DEAD; // 유닛 상태를 사망으로 변경
+
+        // 사망한 유닛이 적군 영웅(보스)인지, 플레이어 영웅인지 체크
         boolean isEnemyBoss = target.team.equals(aiTeam) && target.unitClass == Unit.UnitClass.HERO;
         boolean isPlayerHero = target.team.equals(playerTeam) && target.unitClass == Unit.UnitClass.HERO;
 
-        // [중요] 승패 결정 즉시 모든 음악 정지 (중복 재생 방지 근본 해결)
+        // 1. 승리 또는 패배 조건이 충족된 경우
         if (isEnemyBoss || isPlayerHero) {
+            // [핵심] 모든 배경 음악을 정지시켜 중복 재생을 방지하고 정적을 만듭니다.
             game.playMusic(null);
-            gameOver = true;
+            gameOver = true; // 게임 오버 플래그 활성화 (render의 업데이트 중지)
         }
 
+        // 2. 승리 시 처리 (적 보스 사망)
         if (isEnemyBoss) {
+            // 마지막 7스테이지라면 엔딩 컷신으로 연결
             if (stageLevel == 7) {
                 game.setScreen(new com.hades.game.screens.cutscene.BaseCutsceneScreen(
                     game, com.hades.game.screens.cutscene.CutsceneManager.getStageData(8), new EndingScreen(game)
                 ));
             } else {
                 gameUI.addLog("승리! 적의 수장을 물리쳤습니다.", "SYSTEM", playerTeam);
-                showGameOverMenu(true);
+                showGameOverMenu(true); // 승리 메뉴 표시
             }
-        } else if (isPlayerHero) {
+        }
+        // 3. 패배 시 처리 (플레이어 영웅 사망)
+        else if (isPlayerHero) {
             gameUI.addLog("패배... 하데스의 영웅이 전사했습니다.", "SYSTEM", playerTeam);
-            showGameOverMenu(false);
+            showGameOverMenu(false); // 패배 메뉴 표시
         }
     }
 
+    // [showGameOverMenu] 전투 결과에 따라 화면 중앙에 UI를 띄워주는 메서드입니다.
     private void showGameOverMenu(boolean isVictory) {
         Table table = new Table();
-        table.setFillParent(true);
-        table.center();
+        table.setFillParent(true); // 테이블을 화면 전체 크기로 설정
+        table.center(); // 중앙 정렬
 
+        // 결과 타이틀 (승리: 골드색, 패배: 붉은색)
         Label titleLabel = new Label(isVictory ? "VICTORY!" : "DEFEAT...",
             new Label.LabelStyle(game.titleFont, isVictory ? Color.GOLD : Color.FIREBRICK));
         table.add(titleLabel).padBottom(50).row();
 
+        // 승리했을 경우 보상 및 다음 단계 처리
         if (isVictory) {
+            // 랜덤 보상 계산 및 저장 (영혼 파편 1~3개)
             int rewardSouls = (int)(Math.random() * 3) + 1;
             game.runState.soulFragments += rewardSouls;
             game.runState.olympusSeals += 1;
 
+            // 현재 클리어한 스테이지가 최고 기록보다 높으면 진행도 갱신
             if (game.runState.currentStageLevel <= stageLevel) {
                 game.runState.currentStageLevel = stageLevel + 1;
             }
-            game.saveGame();
+            game.saveGame(); // 변경된 상태 세이브 파일에 기록
 
             Label rewardLabel = new Label("보상: 영혼 파편 +" + rewardSouls + ", 인장 +1", new Label.LabelStyle(game.mainFont, Color.CYAN));
             table.add(rewardLabel).padBottom(30).row();
 
+            // [버튼] 강화 화면(업그레이드)으로 이동
             Label upgradeBtn = new Label("[ 명계의 제단으로 ]", new Label.LabelStyle(game.mainFont, Color.valueOf("4FB9AF")));
             upgradeBtn.addListener(new ClickListener() {
                 @Override
                 public void clicked(InputEvent event, float x, float y) {
-                    game.playMusic(null); // 전환 전 음악 상태 초기화
+                    game.playClick();
                     game.setScreen(new UpgradeScreen(game, heroName, game.runState.heroStat, stageLevel));
                 }
             });
             UI.addHoverEffect(game, upgradeBtn, Color.valueOf("4FB9AF"), Color.WHITE);
             table.add(upgradeBtn).padBottom(20).row();
-        } else {
+        }
+        // 패배했을 경우 리트라이 옵션 제공
+        else {
             Label retryBtn = new Label("[ RE-TRY ]", new Label.LabelStyle(game.mainFont, Color.WHITE));
             retryBtn.addListener(new ClickListener() {
                 @Override
                 public void clicked(InputEvent event, float x, float y) {
-                    game.playMusic(null); // 재시작 전 음악 상태 초기화
+                    game.playClick();
+
+                    // [핵심] 리트라이 시 현재 음악을 완전히 멈춰야 새로운 화면의 show()에서 처음부터 다시 틀어줍니다.
+                    if (game.battleBgm != null) {
+                        game.battleBgm.stop();
+                    }
+
+                    // 동일한 데이터로 배틀 스크린 재시작
                     game.setScreen(new BattleScreen(game, playerTeam, heroName, heroStat, stageLevel));
                 }
             });
@@ -368,27 +427,32 @@ public class BattleScreen extends ScreenAdapter {
             table.add(retryBtn).padBottom(20).row();
         }
 
+        // [공통 버튼] 맵 화면으로 돌아가기
         Label homeBtn = new Label("[ GO TO MAP ]", new Label.LabelStyle(game.mainFont, Color.LIGHT_GRAY));
         homeBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
+                game.playClick();
+                // 로딩 화면을 거쳐 스테이지 맵으로 복귀
                 game.setScreen(new LoadingScreen(game, new StageMapScreen(game)));
             }
         });
         UI.addHoverEffect(game, homeBtn, Color.LIGHT_GRAY, Color.WHITE);
         table.add(homeBtn).padBottom(20).row();
 
+        // [공통 버튼] 메인 타이틀로 복귀
         Label titleBtn = new Label("[ RETURN HOME ]", new Label.LabelStyle(game.mainFont, Color.valueOf("7F8C8D")));
         titleBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
-                game.playMusic(game.menuBgm); // 메뉴로 돌아갈 때 음악 전환
+                game.playClick();
                 game.setScreen(new MenuScreen(game));
             }
         });
         UI.addHoverEffect(game, titleBtn, Color.valueOf("7F8C8D"), Color.WHITE);
         table.add(titleBtn).padBottom(10);
 
+        // 준비된 테이블을 스테이지에 추가하고 입력 권한을 스테이지로 넘깁니다.
         stage.addActor(table);
         Gdx.input.setInputProcessor(stage);
     }

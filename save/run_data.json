@@ -1,22 +1,17 @@
 {
-selectedHeroName: 연초록
+selectedHeroName: 솜주먹
 selectedFaction: HADES
-currentStageLevel: 7
+currentStageLevel: 2
 heroStat: {
-	hp: 740
-	atk: 60
-	counterAtk: 70
-	move: 2
+	hp: 760
+	atk: 50
+	counterAtk: 30
+	move: 1
 	range: 1
 	value: 1000
 	learnedSkills: [
 		기본 공격
-		영혼 흡수
-		연옥의 불꽃
-		지옥의 숨결
-		그림자 습격
 		심연의 고리
-		삼두견의 포효
 	]
 }
 }
