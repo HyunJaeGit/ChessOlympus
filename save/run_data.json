@@ -1,23 +1,27 @@
 {
-selectedHeroName: 띵귤
+selectedHeroName: 솜주먹
 selectedFaction: HADES
-currentStageLevel: 2
+currentStageLevel: 3
 heroStat: {
-	hp: 900
-	atk: 75
-	counterAtk: 35
+	hp: 1000
+	atk: 95
+	counterAtk: 50
 	move: 2
-	range: 2
+	range: 1
 	value: 300
 	learnedSkills: [
 		기본 공격
+		그림자 습격
+		연옥의 불꽃
 	]
+	usedSkills: {
+		그림자 습격: true
+	}
 }
-soulFragments: 3
-olympusSeals: 1
 stageBestTimes: {
 	class: java.util.HashMap
-	1: 0.817432
+	1: 130.63455
+	2: 157.05788
 }
 topBestTimes: [ 320, 465, 615 ]
 topHeroNames: [
