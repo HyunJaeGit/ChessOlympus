@@ -4,36 +4,32 @@ selectedFaction: HADES
 currentStageLevel: 7
 heroStat: {
 	hp: 900
-	atk: 120
+	atk: 85
 	counterAtk: 30
 	move: 2
 	range: 1
 	value: 300
 	learnedSkills: [
 		기본 공격
-		지옥의 숨결
-		그림자 습격
-		망자의 원한
-		심연의 고리
 	]
 }
-soulFragments: 6
-olympusSeals: 2
+soulFragments: 13
+olympusSeals: 6
 stageBestTimes: {
 	class: java.util.HashMap
-	1: 3.9324577
-	2: 1.8484923
-	3: 0.85221916
-	4: 0.5532657
-	5: 0.56987625
-	6: 0.71966004
-	7: 17.374245
-	7: 0.68346834
+	1: 1.9181995
+	2: 1.3278359
+	3: 0.529196
+	4: 0.6156224
+	5: 0.5472127
+	6: 0.70546263
+	7: 1.4156635
+	7: 0.86452353
 }
-topBestTimes: [ 1.3659508, 26.533684, 27.216167 ]
+topBestTimes: [ 7.0591927, 7.923716, 320 ]
 topHeroNames: [
 	키마
 	키마
-	키마
+	데브케이
 ]
 }

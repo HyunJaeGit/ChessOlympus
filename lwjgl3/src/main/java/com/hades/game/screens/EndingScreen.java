@@ -40,7 +40,7 @@ public class EndingScreen extends ScreenAdapter {
         Label msg = new Label("5명의 영웅들은 지옥의 질서를 다시 세웠다.", new Label.LabelStyle(game.mainFont, Color.WHITE));
 
         // [추가] 기록 확인 버튼
-        Label scoreBtn = new Label("[ 명예의전당 (기록확인) ]", new Label.LabelStyle(game.mainFont, Color.CYAN));
+        Label scoreBtn = new Label("[ 기록 확인 ]", new Label.LabelStyle(game.mainFont, Color.CYAN));
         UI.addHoverEffect(game, scoreBtn, Color.CYAN, Color.WHITE);
         scoreBtn.addListener(new ClickListener() {
             @Override
