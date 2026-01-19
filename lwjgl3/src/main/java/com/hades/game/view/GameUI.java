@@ -16,6 +16,7 @@ import com.hades.game.constants.SkillData;
 import com.hades.game.entities.Unit;
 
 // Chess Olympus: HADES vs ZEUS - 전투 화면 UI 렌더링 클래스
+// 로그 시스템, 유닛 정보, 스킬 버튼 및 도움말 창을 관리합니다.
 public class GameUI implements Disposable {
     private final HadesGame game;
 
@@ -29,7 +30,7 @@ public class GameUI implements Disposable {
     private final float HELP_BTN_W = 120;
     private final Rectangle helpBtnHitbox = new Rectangle();
 
-    // 로그 시스템 관련 클래스
+    // 로그 시스템 관련 내부 클래스
     private static class LogEntry {
         final Color color;
         final GlyphLayout layout;
@@ -53,7 +54,7 @@ public class GameUI implements Disposable {
     private final Array<PendingLog> pendingQueue = new Array<>();
     private static final int MAX_LOGS = 12;
 
-    // 로그 영역 설정
+    // 로그 영역 배치 및 애니메이션 설정
     private final float LOG_AREA_X = 400;
     private final float LOG_AREA_Y = 10;
     private final float LOG_AREA_W = 800;
@@ -83,14 +84,23 @@ public class GameUI implements Disposable {
         timerBoxBg = new Texture(Gdx.files.internal(path + "timer_box.png"));
     }
 
-    public void addLog(String message) {
-        addLog(message, "SYSTEM", "PLAYER");
-    }
-
+    // 전투 로그 추가 메서드 - 상대방의 공격 피해만 빨간색으로 처리
     public void addLog(String message, String unitTeam, String playerTeam) {
-        Color logColor = Color.LIGHT_GRAY;
-        if ("SYSTEM".equals(unitTeam)) logColor = Color.GOLD;
-        else if (unitTeam != null && !unitTeam.equals(playerTeam)) logColor = Color.FIREBRICK;
+        Color logColor = Color.LIGHT_GRAY; // 기본 색상
+
+        // 1. 시스템 메시지 (황금색)
+        if ("SYSTEM".equals(unitTeam)) {
+            logColor = Color.GOLD;
+        }
+        // 2. 적 팀(AI)의 행동인 경우 색상 판단
+        else if (unitTeam != null && !unitTeam.equals(playerTeam)) {
+            // "데미지" 혹은 "피해" 키워드가 포함된 적의 공격로그만 빨간색 강조
+            if (message.contains("데미지") || message.contains("피해")) {
+                logColor = Color.FIREBRICK;
+            } else {
+                logColor = Color.LIGHT_GRAY;
+            }
+        }
 
         synchronized (pendingQueue) {
             pendingQueue.add(new PendingLog(message, logColor));
@@ -109,11 +119,10 @@ public class GameUI implements Disposable {
         }
     }
 
-    // 메인 UI 렌더링
     public void render(int stageLevel, String currentTurn, String playerTeam, Rectangle menuHitbox, Unit selectedUnit, float mx, float my, boolean showHelp) {
         flushLogs();
 
-        // 1. 상단 정보
+        // 1. 상단 정보 (스테이지 및 턴 표시)
         game.batch.draw(stageInfoBg, 20, GameConfig.VIRTUAL_HEIGHT - 80, 200, 60);
         game.unitFont2.setColor(Color.WHITE);
         game.unitFont2.draw(game.batch, "STAGE " + stageLevel, 60, GameConfig.VIRTUAL_HEIGHT - 40);
@@ -136,7 +145,7 @@ public class GameUI implements Disposable {
 
         renderExpandableLog(mx, my);
 
-        // 3. 유닛 정보 및 스킬
+        // 3. 선택된 유닛 정보 및 스킬 UI
         if (selectedUnit != null && selectedUnit.isAlive()) {
             renderUnitDetails(selectedUnit);
             if (selectedUnit.unitClass == Unit.UnitClass.HERO) {
@@ -227,7 +236,6 @@ public class GameUI implements Disposable {
         game.unitFont3.draw(game.batch, data.description, tx + marginLeft, currentY, tw - (marginLeft * 2), Align.left, true);
     }
 
-    // 도움말 창 렌더링
     private void renderHelpWindow() {
         float winW = 850;
         float winH = 500;

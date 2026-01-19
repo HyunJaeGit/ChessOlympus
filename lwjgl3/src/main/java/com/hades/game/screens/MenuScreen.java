@@ -20,10 +20,11 @@ import com.hades.game.screens.cutscene.BaseCutsceneScreen;
 import com.hades.game.screens.cutscene.CutsceneManager;
 import com.hades.game.view.UI;
 
+// Chess Olympus: HADES vs ZEUS - 메인 메뉴 화면
 public class MenuScreen extends ScreenAdapter {
     private final HadesGame game;
-    private final Stage stage; // final 추가
-    private final Texture backgroundTexture; // final 추가
+    private final Stage stage;
+    private final Texture backgroundTexture;
 
     private Label volStatusLabel;
     private Label screenBtn;
@@ -46,24 +47,21 @@ public class MenuScreen extends ScreenAdapter {
     @Override
     public void show() {
         Gdx.input.setInputProcessor(stage);
-        if (game.battleBgm != null) game.battleBgm.stop();
-        if (game.menuBgm != null && !game.menuBgm.isPlaying()) {
-            game.menuBgm.setVolume(game.globalVolume);
-            game.menuBgm.play();
-        }
+        // [수정] 오디오 매니저를 통해 메뉴 배경음악 재생 (중복 재생은 매니저가 방지함)
+        game.audioManager.playBgm("music/bgm.mp3");
     }
 
     private void initUI() {
         Table mainTable = new Table();
         mainTable.setFillParent(true);
-        mainTable.center(); // 전체를 중앙에 배치
+        mainTable.center();
         stage.addActor(mainTable);
 
-        // 1. 타이틀 섹션 (위쪽으로 배치)
+        // 1. 타이틀 섹션
         mainTable.add(new Label("CHESS OLYMPUS", new Label.LabelStyle(game.titleFont, COLOR_GOLD))).padBottom(10).row();
         mainTable.add(new Label("HADES VS ZEUS", new Label.LabelStyle(game.subtitleFont, COLOR_SUB))).padBottom(50).row();
 
-        // 2. 중간 메뉴 그룹 (글씨 크기를 detailFont로 하향 조정하여 겹침 방지)
+        // 2. 중간 메뉴 그룹
         Table menuGroup = new Table();
 
         // --- 여정 계속하기 ---
@@ -81,7 +79,7 @@ public class MenuScreen extends ScreenAdapter {
                 }
             });
         }
-        menuGroup.add(continueBtn).padBottom(20).row(); // 패딩을 늘려 간격 확보
+        menuGroup.add(continueBtn).padBottom(20).row();
 
         // --- 새로운 여정 ---
         Label startBtn = new Label("NEW JOURNEY", new Label.LabelStyle(game.detailFont, COLOR_MAIN));
@@ -150,7 +148,7 @@ public class MenuScreen extends ScreenAdapter {
 
         mainTable.add(menuGroup).center();
 
-        // 3. 하단 저작권 (조금 더 아래로 내림)
+        // 3. 하단 저작권
         Table bottomTable = new Table();
         bottomTable.setFillParent(true);
         bottomTable.bottom().padBottom(20);
@@ -160,49 +158,34 @@ public class MenuScreen extends ScreenAdapter {
             비영리/비상업용 팬게임이며 수익창출/2차창작을 금지합니다.
             모든 권리는 제작자 '데브케이'에 있습니다.
             문의 : fatking25@kakao.com""",
-            new Label.LabelStyle(game.detailFont, new Color(0.5f, 0.5f, 0.5f, 0.8f)) // 가독성을 위해 색상 살짝 조정
+            new Label.LabelStyle(game.detailFont, new Color(0.5f, 0.5f, 0.5f, 0.8f))
         );
         infoLabel.setAlignment(Align.center);
-        infoLabel.setFontScale(0.8f); // 저작권 텍스트 크기 자체 축소
+        infoLabel.setFontScale(0.8f);
         bottomTable.add(infoLabel);
     }
 
     private void showOverwriteWarning() {
-        // 1. 윈도우 스타일 (배경 없이 폰트만 설정)
         Window.WindowStyle windowStyle = new Window.WindowStyle(game.detailFont2, Color.WHITE, null);
-
         Dialog dialog = new Dialog("", windowStyle) {
             @Override
             public void draw(com.badlogic.gdx.graphics.g2d.Batch batch, float parentAlpha) {
-                // [효과 1] 전체 화면 어둡게 만들기 (Dim)
-                batch.setColor(0, 0, 0, 0.7f); // 70% 투명도
-                // 흰색 픽셀이나 배경 텍스처를 활용해 전체를 덮습니다.
+                batch.setColor(0, 0, 0, 0.7f);
                 batch.draw(backgroundTexture, 0, 0, GameConfig.VIRTUAL_WIDTH, GameConfig.VIRTUAL_HEIGHT);
-
-                // [효과 2] 다이얼로그 그림자 (Drop Shadow)
-                // 본체보다 약간 오른쪽 아래에 검은색 사각형을 먼저 그립니다.
                 batch.setColor(0, 0, 0, 0.5f);
                 batch.draw(backgroundTexture, getX() + 10, getY() - 10, getWidth(), getHeight());
-
-                // [효과 3] 다이얼로그 실제 배경 (어두운 남색/검정)
                 batch.setColor(0.05f, 0.05f, 0.1f, 0.95f);
                 batch.draw(backgroundTexture, getX(), getY(), getWidth(), getHeight());
-
-                // [효과 4] 금색 테두리 (Border) - 배경 위를 얇게 덮음
                 batch.setColor(COLOR_GOLD);
-                // 가로선 상/하
                 batch.draw(backgroundTexture, getX(), getY(), getWidth(), 2);
                 batch.draw(backgroundTexture, getX(), getY() + getHeight() - 2, getWidth(), 2);
-                // 세로선 좌/우
                 batch.draw(backgroundTexture, getX(), getY(), 2, getHeight());
                 batch.draw(backgroundTexture, getX() + getWidth() - 2, getY(), 2, getHeight());
-
-                batch.setColor(Color.WHITE); // 색상 초기화
+                batch.setColor(Color.WHITE);
                 super.draw(batch, parentAlpha);
             }
         };
 
-        // 기존 UI 구성은 그대로 유지
         dialog.getContentTable().pad(50);
         dialog.text("기존의 여정 기록이 존재합니다.\n새로 시작하면 이전 기록은 영원히 소멸합니다.\n계속하시겠습니까?",
             new Label.LabelStyle(game.detailFont, Color.WHITE));
@@ -231,17 +214,17 @@ public class MenuScreen extends ScreenAdapter {
 
         buttonTable.add(okBtn).padRight(50);
         buttonTable.add(cancelBtn);
-
         dialog.show(stage);
     }
 
     private void startNewGame() {
-        if (game.menuBgm != null) game.menuBgm.stop();
+        // [수정] 오디오 매니저를 사용하여 정지
+        game.audioManager.stopBgm();
         game.runState.reset();
         game.setScreen(new BaseCutsceneScreen(
             game,
             CutsceneManager.getIntroData(),
-            new HeroSelectionScreen(game, "HADES", game.menuBgm)
+            new HeroSelectionScreen(game, "HADES") // [수정] 음악 객체 인자 제거
         ));
     }
 
@@ -267,7 +250,6 @@ public class MenuScreen extends ScreenAdapter {
 
         game.batch.setProjectionMatrix(stage.getViewport().getCamera().combined);
         game.batch.begin();
-        // 배경을 조금 더 어둡게 처리하여 글자 가독성 확보 (0.4f -> 0.3f)
         game.batch.setColor(0.3f, 0.3f, 0.3f, 1f);
         game.batch.draw(backgroundTexture, 0, 0, GameConfig.VIRTUAL_WIDTH, GameConfig.VIRTUAL_HEIGHT);
         game.batch.setColor(Color.WHITE);

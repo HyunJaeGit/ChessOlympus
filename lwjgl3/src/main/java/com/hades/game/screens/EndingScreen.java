@@ -13,7 +13,7 @@ import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.hades.game.HadesGame;
 import com.hades.game.constants.GameConfig;
 
-// 게임 엔딩 화면
+// Chess Olympus: HADES vs ZEUS - 게임 엔딩 화면
 public class EndingScreen extends ScreenAdapter {
     private final HadesGame game;
     private Stage stage;
@@ -24,7 +24,6 @@ public class EndingScreen extends ScreenAdapter {
         initUI();
     }
 
-    // 화면이 활성화될 때마다 실행되며, 입력 프로세서를 스테이지로 고정합니다.
     @Override
     public void show() {
         Gdx.input.setInputProcessor(stage);
@@ -46,32 +45,23 @@ public class EndingScreen extends ScreenAdapter {
         Label thanksMsg = new Label(thanksText, new Label.LabelStyle(game.unitFont, Color.LIGHT_GRAY));
         thanksMsg.setAlignment(com.badlogic.gdx.utils.Align.center);
 
-        // 홈
+        // 홈 버튼
         Label homeBtn = new Label("[ 홈으로 돌아가기 ]", new Label.LabelStyle(game.mainFont, Color.WHITE));
         homeBtn.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
                 game.playClick();
 
-                // 모든 음악 정지 및 리소스 해제
-                if (game.battleBgm != null) game.battleBgm.stop();
-                if (game.currentBgm != null) {
-                    game.currentBgm.stop();
-                    game.currentBgm.dispose();
-                    game.currentBgm = null;
-                }
+                // [수정] AudioManager를 사용하여 모든 배경음악 정지
+                game.audioManager.stopBgm();
 
-                // 메뉴 배경음악 재생 후 메인 화면으로 이동
-                if (game.menuBgm != null) {
-                    game.menuBgm.setVolume(game.globalVolume);
-                    if (!game.menuBgm.isPlaying()) game.menuBgm.play();
-                }
+                // [수정] 메뉴 배경음악 재생 후 메인 화면으로 이동 (파일명은 music/menu_theme.mp3로 가정)
+                game.audioManager.playBgm("music/ending.mp3");
 
                 game.setScreen(new MenuScreen(game));
             }
         });
 
-        // 테이블 배치: 타이틀, 메시지, 인사말, 버튼 순으로 구성
         table.add(title).padBottom(20).row();
         table.add(msg).padBottom(60).row();
         table.add(thanksMsg).padBottom(70).row();
@@ -85,14 +75,12 @@ public class EndingScreen extends ScreenAdapter {
         Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        // stage.act()에 delta를 전달해야 클릭 판정이 정확하게 일어납니다.
         stage.act(delta);
         stage.draw();
     }
 
     @Override
     public void resize(int width, int height) {
-        // 화면 크기 조정 시 뷰포트를 업데이트하여 터치 좌표 오차를 방지합니다.
         stage.getViewport().update(width, height, true);
     }
 

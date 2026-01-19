@@ -54,7 +54,7 @@ public class BattleScreen extends ScreenAdapter {
 
     private float aiDelay = 0;
     private boolean aiBusy = false;
-    private boolean gameOver = false; // 게임 종료 여부 플래그
+    private boolean gameOver = false;
 
     private final float MENU_W = 180;
     private final float MENU_H = 60;
@@ -96,9 +96,7 @@ public class BattleScreen extends ScreenAdapter {
             com.hades.game.screens.cutscene.CutsceneManager.getStageData(stageLevel);
 
         if (data != null && data.bgmPath() != null) {
-            if (game.battleBgm != null) game.battleBgm.dispose();
-            game.battleBgm = Gdx.audio.newMusic(Gdx.files.internal(data.bgmPath()));
-            game.playMusic(game.battleBgm);
+            game.audioManager.playBgm(data.bgmPath());
         }
     }
 
@@ -135,7 +133,6 @@ public class BattleScreen extends ScreenAdapter {
             cameraManager.stopPanning();
         }
 
-        // 게임 오버가 아닐 때만 유닛 및 로직 업데이트
         if (!gameOver) {
             for (Unit u : units) u.update(delta);
             update(delta);
@@ -169,7 +166,6 @@ public class BattleScreen extends ScreenAdapter {
         }
 
         game.batch.begin();
-        // 죽은 영웅이라도 gameOver 상태라면 마지막 모습을 그리기 위해 조건 유지
         for (Unit u : units) {
             if (u.isAlive() || (gameOver && u.unitClass == Unit.UnitClass.HERO)) {
                 unitRenderer.renderShadow(u, selectedUnit);
@@ -189,7 +185,7 @@ public class BattleScreen extends ScreenAdapter {
     }
 
     private void update(float delta) {
-        if (gameOver) return; // 게임 종료 시 모든 업데이트 중단
+        if (gameOver) return;
 
         if (turnManager.getCurrentTurn().equals(playerTeam)) {
             aiBusy = false;
@@ -284,7 +280,7 @@ public class BattleScreen extends ScreenAdapter {
     }
 
     public void processMoveEnd(Unit unit) {
-        if (gameOver) return; // 이동 후 공격 전 게임이 이미 끝났는지 확인
+        if (gameOver) return;
         String reserved = unit.stat.getReservedSkill();
         if (reserved != null && !reserved.equals("기본 공격")) {
             executeHeroSkill(unit, reserved);
@@ -294,24 +290,24 @@ public class BattleScreen extends ScreenAdapter {
 
     private void executeHeroSkill(Unit hero, String skillName) {
         hero.say(skillName + "!!");
-        SkillManager.executeSkill(hero, skillName, units, gameUI, playerTeam);
+        SkillManager.executeSkill(hero, skillName, units, gameUI, playerTeam, this);
         hero.stat.clearReservedSkill();
     }
 
-    private void handleDeath(Unit target) {
-        if (gameOver) return; // 이미 종료된 상태면 중복 호출 무시
+    public Array<Unit> getUnits() {
+        return this.units;
+    }
 
+    public void handleDeath(Unit target) {
+        if (gameOver) return;
         target.status = Unit.DEAD;
 
-        // 사망 유닛이 영웅(HERO) 클래스인지 판별
         boolean isEnemyBoss = target.team.equals(aiTeam) && target.unitClass == Unit.UnitClass.HERO;
         boolean isPlayerHero = target.team.equals(playerTeam) && target.unitClass == Unit.UnitClass.HERO;
 
         if (isEnemyBoss || isPlayerHero) {
-            game.playMusic(null); // 배경음악 정지
-            gameOver = true; // 게임 오버 상태로 전환
-
-            // AI 및 입력 상태 초기화
+            game.audioManager.stopBgm();
+            gameOver = true;
             aiBusy = false;
             aiDelay = 0;
             selectedUnit = null;
@@ -368,7 +364,7 @@ public class BattleScreen extends ScreenAdapter {
                 @Override
                 public void clicked(InputEvent event, float x, float y) {
                     game.playClick();
-                    if (game.battleBgm != null) game.battleBgm.stop();
+                    game.audioManager.stopBgm();
                     game.setScreen(new BattleScreen(game, playerTeam, heroName, heroStat, stageLevel));
                 }
             });
@@ -381,6 +377,7 @@ public class BattleScreen extends ScreenAdapter {
             @Override
             public void clicked(InputEvent event, float x, float y) {
                 game.playClick();
+                game.audioManager.stopBgm();
                 game.setScreen(new LoadingScreen(game, new StageMapScreen(game)));
             }
         });
@@ -392,6 +389,7 @@ public class BattleScreen extends ScreenAdapter {
             @Override
             public void clicked(InputEvent event, float x, float y) {
                 game.playClick();
+                game.audioManager.stopBgm();
                 game.setScreen(new MenuScreen(game));
             }
         });
@@ -399,12 +397,11 @@ public class BattleScreen extends ScreenAdapter {
         table.add(titleBtn).padBottom(10);
 
         stage.addActor(table);
-        Gdx.input.setInputProcessor(stage); // UI가 입력을 받도록 설정
+        Gdx.input.setInputProcessor(stage);
     }
 
     private void cleanupDeadUnits() {
-        if (gameOver) return; // 게임 오버 시 유닛 제거 보류
-
+        if (gameOver) return;
         for (int i = units.size - 1; i >= 0; i--) {
             if (units.get(i).status == Unit.DEAD) {
                 if (selectedUnit == units.get(i)) selectedUnit = null;
@@ -431,6 +428,11 @@ public class BattleScreen extends ScreenAdapter {
 
     public boolean isGameOver() {
         return gameOver;
+    }
+
+    // AILogic 등 외부 클래스에서 UI에 접근할 수 있도록 Getter 추가
+    public GameUI getGameUI() {
+        return this.gameUI;
     }
 
     @Override

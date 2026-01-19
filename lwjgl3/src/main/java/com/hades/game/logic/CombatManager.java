@@ -14,7 +14,7 @@ public class CombatManager {
     private final String playerTeam;
     private final DeathHandler deathHandler;
 
-    // 유닛의 사망 처리를 외부(BattleScreen 등)에서 처리할 수 있도록 연결하는 인터페이스입니다.
+    // 유닛의 사망 처리를 외부에서 처리할 수 있도록 연결하는 인터페이스입니다.
     public interface DeathHandler {
         void onUnitDeath(Unit target);
     }
@@ -28,7 +28,6 @@ public class CombatManager {
 
     // 특정 진영의 모든 살아있는 유닛이 사거리 내 적을 자동으로 공격하도록 처리합니다.
     public void processAutoAttack(Array<Unit> units, String team) {
-        // libGDX Array의 중첩 반복 에러를 방지하기 위해 인덱스 기반 for문을 사용합니다.
         for (int i = 0; i < units.size; i++) {
             Unit attacker = units.get(i);
             if (attacker != null && attacker.isAlive() && attacker.team.equals(team)) {
@@ -43,8 +42,6 @@ public class CombatManager {
                 }
             }
         }
-
-        // 모든 공격이 끝난 후 성녀 유닛들의 치료 로직을 실행합니다.
         processAutoHeal(units, team);
     }
 
@@ -68,7 +65,6 @@ public class CombatManager {
                 attacker.stat.clearReservedSkill();
                 attacker.stat.setSkillUsed(activeSkillName, true);
             } else if (!attacker.team.equals(playerTeam)) {
-                // [복구 완료] UnitData의 skillName() 메서드를 호출합니다.
                 activeSkillName = attacker.stat.skillName();
                 skillMultiplier = SkillData.get(activeSkillName).power;
                 sendToUI("[권능] " + attacker.name + " [" + activeSkillName + "]!", attacker.team);
@@ -78,14 +74,15 @@ public class CombatManager {
         int finalDamage = (int)(damage * skillMultiplier);
         target.takeDamage(finalDamage, Color.RED);
 
+        // 로그 생성 시 "데미지" 키워드 앞에 공백을 주어 GameUI에서 인식하기 쉽게 만듭니다.
         String logEntry = (activeSkillName != null)
-            ? String.format("%s -> %s [%s] %d데미지", attacker.name, target.name, activeSkillName, finalDamage)
-            : String.format("%s -> %s %d데미지", attacker.name, target.name, finalDamage);
+            ? String.format("%s -> %s [%s] %d 데미지", attacker.name, target.name, activeSkillName, finalDamage)
+            : String.format("%s -> %s %d 데미지", attacker.name, target.name, finalDamage);
         sendToUI(logEntry, attacker.team);
 
         if (target.currentHp <= 0) {
-            target.currentHp = 0; // [수정] 체력을 0으로 고정
-            target.status = Unit.DEAD; // [수정] 상태를 즉시 사망으로 변경
+            target.currentHp = 0;
+            target.status = Unit.DEAD;
             sendToUI(target.name + " 처치됨!", "SYSTEM");
             deathHandler.onUnitDeath(target);
             return;
@@ -96,18 +93,18 @@ public class CombatManager {
             target.playAttackAnim(attacker.gridX, attacker.gridY);
             int counterDamage = target.getPower(turnManager.isMyTurn(target.team));
             attacker.takeDamage(counterDamage, Color.GOLD);
-            sendToUI(" > " + target.name + " 반격! " + counterDamage + "데미지", target.team);
+            // 반격 로그에도 "데미지" 키워드 포함
+            sendToUI(" > " + target.name + " 반격! " + counterDamage + " 데미지", target.team);
 
             if (attacker.currentHp <= 0) {
-                attacker.currentHp = 0; // [수정] 체력을 0으로 고정
-                attacker.status = Unit.DEAD; // [수정] 상태를 즉시 사망으로 변경
+                attacker.currentHp = 0;
+                attacker.status = Unit.DEAD;
                 sendToUI(attacker.name + " 처치됨!", "SYSTEM");
                 deathHandler.onUnitDeath(attacker);
             }
         }
     }
 
-    // 성녀 유닛의 주변 아군 자동 치유 로직
     public void processAutoHeal(Array<Unit> units, String team) {
         for (int i = 0; i < units.size; i++) {
             Unit u = units.get(i);
@@ -126,7 +123,6 @@ public class CombatManager {
         }
     }
 
-    // UI에 로그를 전달하는 내부 메서드
     private void sendToUI(String msg, String team) {
         gameUI.addLog(msg, team, playerTeam);
     }

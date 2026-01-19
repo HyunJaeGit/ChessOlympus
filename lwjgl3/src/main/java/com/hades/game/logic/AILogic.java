@@ -6,165 +6,154 @@ import com.badlogic.gdx.math.MathUtils;
 import com.hades.game.screens.BattleScreen;
 import com.hades.game.constants.GameConfig;
 import com.hades.game.constants.SkillData;
+import com.hades.game.view.GameUI;
+import java.util.Comparator;
 
-// AI의 의사결정과 행동을 관리하는 클래스입니다.
+// Chess Olympus: HADES vs ZEUS - GDX 이터레이터 중첩 해결 및 지능형 AI
 public class AILogic {
+
+    private static final float DIFFICULTY_FACTOR = 1.0f;
+    private static final Array<Integer> recentUnitIds = new Array<>();
+    private static final Array<MoveCandidate> candidatesPool = new Array<>();
+
+    private static class MoveCandidate {
+        Unit actor;
+        int x, y;
+        float score;
+
+        void set(Unit actor, int x, int y, float score) {
+            this.actor = actor;
+            this.x = x;
+            this.y = y;
+            this.score = score;
+        }
+    }
+
+    static {
+        for(int i = 0; i < 500; i++) candidatesPool.add(new MoveCandidate());
+    }
 
     public static void processAITurn(Array<Unit> units, String aiTeam, TurnManager turnManager, Object screenObj) {
         try {
-            String strategy = getStrategy();
-            System.out.println("[AI Strategy] " + strategy);
+            String strategy = determineStrategy();
+            System.out.println("[AI Thought] Strategy: " + strategy);
 
-            Object[] bestMove = findGlobalBestMove(units, aiTeam, strategy);
-            Unit actor = (Unit) bestMove[0];
-            int targetX = (int) bestMove[1];
-            int targetY = (int) bestMove[2];
+            MoveCandidate best = findGlobalBestMove(units, aiTeam, strategy);
 
-            if (actor != null) {
-                if (actor.unitClass == Unit.UnitClass.HERO) {
-                    checkAndReserveSkill(actor, targetX, targetY, units);
+            if (best != null && best.actor != null) {
+                recordAction(best.actor.hashCode());
+                checkAndReserveSkill(best.actor, best.x, best.y, units);
+                best.actor.setPosition(best.x, best.y);
+
+                String reserved = best.actor.stat.getReservedSkill();
+                if (reserved != null && !reserved.equals("기본 공격")) {
+                    GameUI ui = (screenObj instanceof BattleScreen) ? ((BattleScreen) screenObj).getGameUI() : null;
+                    SkillManager.executeSkill(best.actor, reserved, units, ui, best.actor.team, screenObj);
                 }
 
-                System.out.println("[AI Action] " + actor.name + " move to (" + targetX + "," + targetY + ")");
-                actor.setPosition(targetX, targetY);
-
                 if (screenObj instanceof BattleScreen) {
-                    ((BattleScreen) screenObj).processMoveEnd(actor);
+                    ((BattleScreen) screenObj).processMoveEnd(best.actor);
                 }
             }
         } catch (Exception e) {
-            System.err.println("[AI Error] Logical exception");
+            System.err.println("[AI Error] " + e.getMessage());
             e.printStackTrace();
         } finally {
             turnManager.endTurn();
         }
     }
 
-    private static String getStrategy() {
+    private static String determineStrategy() {
         float roll = MathUtils.random(0f, 100f);
-        if (roll < 60) return "EFFICIENCY";
-        if (roll < 85) return "SACRIFICE";
-        return "ASSASSIN";
+        if (roll < 50f) return "EFFICIENCY";
+        if (roll < 85f) return "ASSASSIN";
+        return "DEFENSIVE_COOP";
     }
 
-    private static Object[] findGlobalBestMove(Array<Unit> units, String aiTeam, String strategy) {
-        Unit bestActor = null;
-        int bestX = -1, bestY = -1;
-        float maxScore = -999999f;
+    private static void recordAction(int unitHash) {
+        recentUnitIds.add(unitHash);
+        if (recentUnitIds.size > 2) recentUnitIds.removeIndex(0);
+    }
 
+    private static MoveCandidate findGlobalBestMove(Array<Unit> units, String aiTeam, String strategy) {
+        int candidateIdx = 0;
+
+        // libGDX Array의 중첩 이터레이터 에러 방지를 위해 인덱스 for문 사용
         for (int i = 0; i < units.size; i++) {
             Unit actor = units.get(i);
-            if (actor == null || !actor.isAlive() || !actor.team.equals(aiTeam)) continue;
+            if (actor == null || !actor.isAlive() || !aiTeam.equals(actor.team)) continue;
 
             for (int x = 0; x < GameConfig.BOARD_WIDTH; x++) {
                 for (int y = 0; y < GameConfig.BOARD_HEIGHT; y++) {
-                    if (BoardManager.canMoveTo(actor, x, y, units)) {
-                        float totalScore = 0;
+                    if (!BoardManager.canMoveTo(actor, x, y, units)) continue;
 
-                        // 1. 적군과의 상호작용 점수 (전체 적 대상 합산)
-                        for (int j = 0; j < units.size; j++) {
-                            Unit enemy = units.get(j);
-                            if (enemy == null || !enemy.isAlive() || enemy.team.equals(aiTeam)) continue;
-                            totalScore += calculateMoveScore(actor, x, y, enemy, units, strategy);
-                        }
+                    float score = calculateFinalScore(actor, x, y, units, aiTeam, strategy);
 
-                        // 2. 군단 형성 및 대형 유지 (좌우 방황 방지)
-                        int nearbyAllies = 0;
-                        for (int k = 0; k < units.size; k++) {
-                            Unit ally = units.get(k);
-                            if (ally != null && ally.isAlive() && ally.team.equals(aiTeam) && ally != actor) {
-                                // 인접한 아군이 있다면 가산점
-                                if (Math.abs(x - ally.gridX) <= 1 && Math.abs(y - ally.gridY) <= 1) {
-                                    nearbyAllies++;
-                                }
-                            }
-                        }
-                        totalScore += (nearbyAllies * 3000);
-
-                        // 3. 전진 의지 및 중앙 점유 (X축 방황 억제)
-                        // 중앙(X=4)에 가까울수록, 그리고 상대 진영(Y 감소 방향)으로 전진할수록 소폭 가산점
-                        totalScore += (5 - Math.abs(x - 4)) * 500;
-
-                        // 제자리 유지 관성 (의미 없는 좌우 이동 억제)
-                        if (x == actor.gridX && y == actor.gridY) totalScore += 2000;
-
-                        if (totalScore > maxScore) {
-                            maxScore = totalScore;
-                            bestActor = actor;
-                            bestX = x;
-                            bestY = y;
-                        }
+                    if (candidateIdx < candidatesPool.size) {
+                        candidatesPool.get(candidateIdx).set(actor, x, y, score);
+                        candidateIdx++;
                     }
                 }
             }
         }
-        return new Object[]{bestActor, bestX, bestY};
+
+        if (candidateIdx == 0) return null;
+
+        // 정렬을 위해 임시 배열 크기 조정
+        Array<MoveCandidate> activeCandidates = new Array<>();
+        for(int i = 0; i < candidateIdx; i++) {
+            activeCandidates.add(candidatesPool.get(i));
+        }
+
+        activeCandidates.sort((c1, c2) -> Float.compare(c2.score, c1.score));
+
+        int poolLimit = Math.min(activeCandidates.size, 3);
+        return activeCandidates.get(MathUtils.random(0, poolLimit - 1));
     }
 
-    private static float calculateMoveScore(Unit actor, int tx, int ty, Unit target, Array<Unit> units, String strategy) {
-        float score = 0;
-        int dist = Math.abs(tx - target.gridX) + Math.abs(ty - target.gridY);
-        int myRange = actor.stat.range();
+    private static float calculateFinalScore(Unit actor, int tx, int ty, Array<Unit> units, String aiTeam, String strategy) {
+        float score = 0f;
+        SkillData.Skill mySkill = SkillData.get(actor.stat.skillName());
+        int range = mySkill.range;
 
-        if (actor.unitClass == Unit.UnitClass.HERO) {
-            myRange = SkillData.get(actor.stat.skillName()).range;
-        }
+        if (recentUnitIds.contains(actor.hashCode(), false)) score -= 40000f;
 
-        // 1. 공격적 가치 (UnitData.Stat.value 반영)
-        if (dist <= myRange) {
-            // 적 처치 시 해당 적의 가치만큼 보너스
-            if (target.currentHp <= actor.stat.atk()) {
-                score += 20000 + (target.stat.value() * 20);
-            } else {
-                // 공격 가능한 위치라면 대상의 가치에 비례해 점수 부여
-                score += 5000 + (target.stat.value() * 5);
-            }
-            if (dist == myRange) score += 4000; // 사거리 끝 유지
-        } else {
-            // 전진 유도 가중치: 적의 가치가 높을수록 더 적극적으로 다가감
-            score += (25 - dist) * (target.stat.value() * 0.5f);
-        }
+        float potentialDamageTaken = 0;
+        int threatCount = 0;
 
-        // 2. 위험도 및 협공 회피 (내 가치 보호)
-        float danger = 0;
-        int attackers = 0;
+        // 내부 루프도 인덱스 for문으로 교체하여 안전성 확보
         for (int i = 0; i < units.size; i++) {
             Unit enemy = units.get(i);
-            if (enemy == null || !enemy.isAlive() || enemy.team.equals(actor.team)) continue;
-            int reach = enemy.stat.move() + enemy.stat.range();
-            if (Math.abs(tx - enemy.gridX) + Math.abs(ty - enemy.gridY) <= reach) {
-                danger += enemy.stat.atk();
-                attackers++;
+            if (enemy == null || !enemy.isAlive() || aiTeam.equals(enemy.team)) continue;
+
+            int dist = Math.abs(tx - enemy.gridX) + Math.abs(ty - enemy.gridY);
+
+            if (dist <= enemy.stat.move() + enemy.stat.range()) {
+                threatCount++;
+                potentialDamageTaken += enemy.stat.atk();
+            }
+
+            if (dist <= range) {
+                float targetValue = (enemy.unitClass == Unit.UnitClass.HERO) ? 50000f : 10000f;
+                score += targetValue;
+
+                int predictedDmg = (int)(actor.getPower(true) * mySkill.power);
+                if (enemy.currentHp <= predictedDmg) score += 100000f;
+
+                float hpPercent = (float) enemy.currentHp / enemy.stat.hp();
+                score += (1.0f - hpPercent) * 20000f;
             }
         }
 
-        // 협공 시 내 유닛 가치에 비례해 대폭 감점 (고가치 유닛 보호)
-        if (attackers >= 2) {
-            score -= (danger * 2.0f) + (actor.stat.value() * 10);
+        if (actor.unitClass == Unit.UnitClass.HERO) {
+            score -= (potentialDamageTaken * 15f);
+            if (threatCount > 2) score -= 60000f;
         } else {
-            score -= (danger * 0.5f);
+            score -= (potentialDamageTaken * 3f);
         }
 
-        // 3. 전략별 특화
-        if (strategy.equals("SACRIFICE") && actor.unitClass != Unit.UnitClass.HERO) {
-            // 저가치 유닛(병사)이 몸빵을 하도록 전진 점수 추가
-            score += (1000 - actor.stat.value()) * 10;
-        }
-
-        // 4. 고립 방지 (범위 2칸)
-        boolean isSafe = false;
-        for (int i = 0; i < units.size; i++) {
-            Unit ally = units.get(i);
-            if (ally != null && ally.isAlive() && ally.team.equals(actor.team) && ally != actor) {
-                if (Math.abs(tx - ally.gridX) <= 2 && Math.abs(ty - ally.gridY) <= 2) {
-                    isSafe = true;
-                    break;
-                }
-            }
-        }
-        if (!isSafe) score -= 20000;
-
-        return score;
+        score += getForwardBias(aiTeam, ty);
+        return score * DIFFICULTY_FACTOR;
     }
 
     private static void checkAndReserveSkill(Unit actor, int tx, int ty, Array<Unit> units) {
@@ -173,11 +162,17 @@ public class AILogic {
         for (int i = 0; i < units.size; i++) {
             Unit enemy = units.get(i);
             if (enemy != null && enemy.isAlive() && !enemy.team.equals(actor.team)) {
-                if (Math.abs(tx - enemy.gridX) + Math.abs(ty - enemy.gridY) <= skill.range) {
+                int dist = Math.abs(tx - enemy.gridX) + Math.abs(ty - enemy.gridY);
+                if (dist <= skill.range) {
                     actor.stat.setReservedSkill(skillName);
                     break;
                 }
             }
         }
+    }
+
+    private static float getForwardBias(String aiTeam, int ty) {
+        if ("ZEUS".equalsIgnoreCase(aiTeam)) return ty * 500f;
+        return (GameConfig.BOARD_HEIGHT - 1 - ty) * 500f;
     }
 }

@@ -16,7 +16,7 @@ import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.hades.game.HadesGame;
 import com.hades.game.constants.GameConfig;
 
-// 게임의 서사를 보여주는 컷씬 화면을 담당하는 클래스입니다.
+// Chess Olympus: HADES vs ZEUS - 게임의 서사를 보여주는 컷씬 화면
 public class BaseCutsceneScreen extends ScreenAdapter {
     private final HadesGame game;
     private final Stage stage;
@@ -40,7 +40,7 @@ public class BaseCutsceneScreen extends ScreenAdapter {
         this.nextScreen = nextScreen;
         this.stage = new Stage(new FitViewport(GameConfig.VIRTUAL_WIDTH, GameConfig.VIRTUAL_HEIGHT));
 
-        // 데이터에 정의된 이미지 경로들을 순차적으로 로드합니다.
+        // 데이터에 정의된 이미지 경로 로드
         this.textures = new Texture[data.imagePaths().length];
         for (int i = 0; i < data.imagePaths().length; i++) {
             this.textures[i] = new Texture(Gdx.files.internal(data.imagePaths()[i]));
@@ -51,7 +51,7 @@ public class BaseCutsceneScreen extends ScreenAdapter {
     }
 
     private void initUI() {
-        // 배경 이미지 설정 (이미지 배경을 어둡게 처리하여 텍스트 가독성 확보)
+        // 배경 이미지 설정
         displayImage = new Image(textures[0]);
         displayImage.setFillParent(true);
         displayImage.setColor(0.6f, 0.6f, 0.6f, 1f);
@@ -61,7 +61,7 @@ public class BaseCutsceneScreen extends ScreenAdapter {
         root.setFillParent(true);
         stage.addActor(root);
 
-        // 하단 대사창 레이블 설정
+        // 하단 대사창 설정
         Label.LabelStyle style = new Label.LabelStyle(game.detailFont2, Color.WHITE);
         storyLabel = new Label("", style);
         storyLabel.setAlignment(Align.center);
@@ -71,13 +71,12 @@ public class BaseCutsceneScreen extends ScreenAdapter {
     }
 
     private void updateScene() {
-        // 현재 인덱스에 맞는 대사와 이미지를 준비합니다.
         if (currentSceneIndex < data.scripts().length) {
             if (currentSceneIndex < textures.length) {
                 displayImage.setDrawable(new TextureRegionDrawable(textures[currentSceneIndex]));
             }
 
-            // 문장을 단어 단위로 분리하여 타이핑 효과 준비
+            // 타이핑 효과 준비
             currentWords = data.scripts()[currentSceneIndex].split(" ");
             currentDisplayText = "";
             wordIndex = 0;
@@ -91,7 +90,7 @@ public class BaseCutsceneScreen extends ScreenAdapter {
         Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        // 한 단어씩 나타나는 타이핑 로직
+        // 타이핑 로직
         if (currentWords != null && wordIndex < currentWords.length) {
             timeCount += delta;
             if (timeCount >= wordSpeed) {
@@ -102,20 +101,18 @@ public class BaseCutsceneScreen extends ScreenAdapter {
             }
         }
 
-        // 터치/클릭 입력 처리
+        // 입력 처리
         if (Gdx.input.justTouched()) {
             game.playClick();
             if (currentWords != null && wordIndex < currentWords.length) {
-                // 아직 글자가 나오는 중이라면 즉시 전체 문장 표시
                 wordIndex = currentWords.length;
                 storyLabel.setText(data.scripts()[currentSceneIndex]);
             } else {
-                // 문장이 완성된 상태라면 다음 장면으로 전환
                 currentSceneIndex++;
                 if (currentSceneIndex < data.scripts().length) {
                     updateScene();
                 } else {
-                    // 모든 컷씬이 끝났으므로 다음 화면(주로 전투)으로 이동
+                    // 모든 컷씬 종료 후 다음 화면 이동 전 음악은 유지하거나 정지 (전투 배경음이 새로 재생됨)
                     game.setScreen(nextScreen);
                 }
             }
@@ -128,25 +125,9 @@ public class BaseCutsceneScreen extends ScreenAdapter {
     @Override
     public void show() {
         Gdx.input.setInputProcessor(stage);
-
-        // 컷씬 데이터에 지정된 BGM 재생 로직
+        // [수정] AudioManager를 사용하여 컷씬 BGM 재생
         if (data.bgmPath() != null) {
-            // 현재 재생 중인 동적 BGM이 있다면 정지 및 자원 해제
-            if (game.currentBgm != null) {
-                game.currentBgm.stop();
-                game.currentBgm.dispose();
-                game.currentBgm = null;
-            }
-
-            // 새로운 컷씬 음악 로드 및 재생
-            try {
-                game.currentBgm = Gdx.audio.newMusic(Gdx.files.internal(data.bgmPath()));
-                game.currentBgm.setLooping(true);
-                game.currentBgm.setVolume(game.globalVolume);
-                game.currentBgm.play();
-            } catch (Exception e) {
-                Gdx.app.error("BaseCutsceneScreen", "음악 로드 실패: " + data.bgmPath());
-            }
+            game.audioManager.playBgm(data.bgmPath());
         }
     }
 
@@ -166,6 +147,5 @@ public class BaseCutsceneScreen extends ScreenAdapter {
         for (Texture tex : textures) {
             if (tex != null) tex.dispose();
         }
-        // 배경음악은 다음 화면에서도 계속 재생되어야 하므로 여기서 dispose하지 않습니다.
     }
 }

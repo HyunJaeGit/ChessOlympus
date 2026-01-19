@@ -29,14 +29,14 @@ public class SkillData {
 
     static {
         // --- [하데스 영웅 스킬] ---
-        addSkill("연옥의 불꽃", "단일 대상에게 명계의 집중 화염 투하 (계수:3.0)", 3.0f, 1, false, Shape.MANHATTAN);
+        addSkill("연옥의 불꽃", "단일 대상에게 명계의 집중 화염 투하 (계수:2.5)", 2.5f, 1, false, Shape.MANHATTAN);
         addSkill("그림자 습격", "일직선 상의 적을 기습하여 강력한 타격 (계수:2.0)", 2.0f, 4, false, Shape.LINE);
-        addSkill("지옥의 숨결", "주변 십자 범위 모든 적에게 업화 (계수:2.2)", 2.2f, 1, true, Shape.CROSS);
+        addSkill("지옥의 숨결", "주변 십자 범위 모든 적에게 업화 (계수:1.9)", 1.8f, 1, true, Shape.CROSS);
         addSkill("심연의 고리", "넓은 다이아몬드 범위의 적들을 잠식 (계수:1.3)", 1.3f, 3, true, Shape.MANHATTAN);
-        addSkill("망자의 원한", "자신 주변 8칸에 원혼의 대폭발을 해방 (계수:2.5)", 2.5f, 1, true, Shape.SQUARE);
+        addSkill("망자의 원한", "자신 주변 8칸에 원혼의 대폭발을 해방 (계수:2.0)", 2.0f, 1, true, Shape.SQUARE);
 
         // --- [제우스 영웅 스킬] ---
-        addSkill("심판의 번개", "체력이 가장 낮은 적을 추격하는 벼락 (계수:1.5)", 1.0f, 99, false, Shape.GLOBAL);
+        addSkill("심판의 번개", "체력이 가장 낮은 적을 추격하는 벼락 (계수:1.0)", 0.5f, 99, false, Shape.GLOBAL);
         addSkill("매혹의 향기", "주변 8칸 아군을 성스러운 힘으로 치유 (계수:0.8)", 0.8f, 2, true, Shape.SQUARE);
         addSkill("여왕의 권위", "십자 방향 적들을 압박하여 위축시킴 (계수:1.1)", 1.1f, 2, true, Shape.CROSS);
         addSkill("달빛의 추격", "매우 긴 사거리에서 일직선 정밀 저격 (계수:1.3)", 1.3f, 6, false, Shape.LINE);

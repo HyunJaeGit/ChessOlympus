@@ -158,6 +158,8 @@ public class UpgradeScreen extends ScreenAdapter {
             @Override
             public void clicked(InputEvent event, float x, float y) {
                 game.playClick();
+                // [수정] 맵으로 복귀 전 현재 음악 정지
+                game.audioManager.stopBgm();
                 game.setScreen(new StageMapScreen(game));
             }
         });
@@ -273,7 +275,11 @@ public class UpgradeScreen extends ScreenAdapter {
     }
 
     @Override
-    public void show() { Gdx.input.setInputProcessor(stage); }
+    public void show() {
+        Gdx.input.setInputProcessor(stage);
+        // [수정] music/ 폴더 내 강화 화면용 BGM 재생
+        game.audioManager.playBgm("music/bgm.mp3");
+    }
 
     @Override
     public void dispose() {
