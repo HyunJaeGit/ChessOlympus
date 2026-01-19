@@ -27,7 +27,7 @@ import com.hades.game.view.MapRenderer;
 import com.hades.game.view.UnitRenderer;
 import com.hades.game.view.UI;
 
-// Chess Olympus: HADES vs ZEUS - 메인 전투 화면 클래스
+// Chess Olympus: HADES vs ZEUS - 메인 전투 화면
 public class BattleScreen extends ScreenAdapter {
     private final HadesGame game;
     private ShapeRenderer shape;
@@ -55,6 +55,7 @@ public class BattleScreen extends ScreenAdapter {
     private float aiDelay = 0;
     private boolean aiBusy = false;
     private boolean gameOver = false;
+    private float stageTime = 0; // 추가: 플레이 타임 측정
 
     private final float MENU_W = 180;
     private final float MENU_H = 60;
@@ -134,6 +135,7 @@ public class BattleScreen extends ScreenAdapter {
         }
 
         if (!gameOver) {
+            stageTime += delta; // 시간 업데이트
             for (Unit u : units) u.update(delta);
             update(delta);
             cleanupDeadUnits();
@@ -174,7 +176,7 @@ public class BattleScreen extends ScreenAdapter {
             }
         }
 
-        gameUI.render(stageLevel, turnManager.getCurrentTurn(), playerTeam, menuHitbox, selectedUnit, mx, my, showHelp);
+        gameUI.render(stageLevel, turnManager.getCurrentTurn(), playerTeam, menuHitbox, selectedUnit, mx, my, showHelp, stageTime);
         game.batch.end();
 
         if (gameOver) {
@@ -294,10 +296,6 @@ public class BattleScreen extends ScreenAdapter {
         hero.stat.clearReservedSkill();
     }
 
-    public Array<Unit> getUnits() {
-        return this.units;
-    }
-
     public void handleDeath(Unit target) {
         if (gameOver) return;
         target.status = Unit.DEAD;
@@ -308,11 +306,8 @@ public class BattleScreen extends ScreenAdapter {
         if (isEnemyBoss || isPlayerHero) {
             game.audioManager.stopBgm();
             gameOver = true;
-            aiBusy = false;
-            aiDelay = 0;
-            selectedUnit = null;
-
             if (isEnemyBoss) {
+                game.runState.stageBestTimes.put(stageLevel, stageTime);
                 if (stageLevel == 7) {
                     game.setScreen(new com.hades.game.screens.cutscene.BaseCutsceneScreen(
                         game, com.hades.game.screens.cutscene.CutsceneManager.getStageData(8), new EndingScreen(game)
@@ -426,18 +421,22 @@ public class BattleScreen extends ScreenAdapter {
         shape.end();
     }
 
+    // TurnManager가 참조하는 필수 메서드
     public boolean isGameOver() {
         return gameOver;
     }
 
-    // AILogic 등 외부 클래스에서 UI에 접근할 수 있도록 Getter 추가
+    public Array<Unit> getUnits() {
+        return this.units;
+    }
+
     public GameUI getGameUI() {
         return this.gameUI;
     }
 
     @Override
-    public void resize(int width, int height) {
-        stage.getViewport().update(width, height, true);
+    public void resize(int w, int h) {
+        stage.getViewport().update(w, h, true);
     }
 
     @Override

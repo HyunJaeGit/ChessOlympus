@@ -119,7 +119,8 @@ public class GameUI implements Disposable {
         }
     }
 
-    public void render(int stageLevel, String currentTurn, String playerTeam, Rectangle menuHitbox, Unit selectedUnit, float mx, float my, boolean showHelp) {
+    // [수정] playTime 매개변수 추가
+    public void render(int stageLevel, String currentTurn, String playerTeam, Rectangle menuHitbox, Unit selectedUnit, float mx, float my, boolean showHelp, float playTime) {
         flushLogs();
 
         // 1. 상단 정보 (스테이지 및 턴 표시)
@@ -129,6 +130,15 @@ public class GameUI implements Disposable {
 
         game.unitFont2.setColor(currentTurn.equals(playerTeam) ? Color.LIME : Color.RED);
         game.unitFont2.draw(game.batch, currentTurn.equals(playerTeam) ? "YOUR TURN" : "ENEMY TURN", 40, GameConfig.VIRTUAL_HEIGHT - 110);
+
+        // [추가] 상단 중앙 플레이 타임 타이머 표시
+        float timerW = 160;
+        float timerH = 60;
+        float timerX = (GameConfig.VIRTUAL_WIDTH - timerW) / 2;
+        float timerY = GameConfig.VIRTUAL_HEIGHT - 80;
+        game.batch.draw(timerBoxBg, timerX, timerY, timerW, timerH);
+        game.unitFont2.setColor(Color.GOLD);
+        game.unitFont2.draw(game.batch, formatTime(playTime), timerX, timerY + 42, timerW, Align.center, false);
 
         // 2. 상단 버튼 (HELP & WINDOW)
         helpBtnHitbox.set(menuHitbox.x - HELP_BTN_W - 15, menuHitbox.y + 10, HELP_BTN_W, menuHitbox.height - 14);
@@ -157,6 +167,13 @@ public class GameUI implements Disposable {
         if (showHelp) {
             renderHelpWindow();
         }
+    }
+
+    // [추가] 시간 포맷팅 메서드
+    private String formatTime(float sec) {
+        int mins = (int) (sec / 60);
+        int secs = (int) (sec % 60);
+        return String.format("%02d:%02d", mins, secs);
     }
 
     private void renderExpandableLog(float mx, float my) {
