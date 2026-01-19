@@ -2,7 +2,7 @@ package com.hades.game.constants;
 
 import java.io.Serializable;
 
-// Chess Olympus: HADES vs ZEUS - 게임 진행 데이터를 저장하는 클래스
+// HADES vs ZEUS - 게임 진행 데이터를 저장하는 클래스
 public class RunState implements Serializable {
     private static final long serialVersionUID = 1L;
 

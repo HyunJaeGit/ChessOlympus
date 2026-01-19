@@ -83,16 +83,21 @@ public class MapRenderer {
                 int dist = dx + dy;
 
                 boolean canAttackTile = false;
-                if (unit.unitClass == Unit.UnitClass.ARCHER) {
-                    if ((dx == 0 || dy == 0) && dist <= unit.stat.range()) canAttackTile = true;
-                } else if (unit.unitClass == Unit.UnitClass.KNIGHT) {
+
+                // BoardManager.canAttack 동기화
+                if (unit.unitClass == Unit.UnitClass.KNIGHT) {
+                    // 기병: 주변 8칸 (대각선 포함)
                     if (dx <= 1 && dy <= 1) canAttackTile = true;
                 } else {
-                    if (dist <= unit.stat.range()) canAttackTile = true;
+                    // 그 외 모든 유닛(영웅, 궁병, 보병): 십자가(직선) 사거리
+                    boolean isStraight = (dx == 0 || dy == 0);
+                    if (isStraight && dist <= unit.stat.range()) {
+                        canAttackTile = true;
+                    }
                 }
 
                 if (canAttackTile) {
-                    shape.setColor(new Color(0.6f, 0.1f, 0.1f, 0.7f));
+                    shape.setColor(new Color(0.8f, 0.1f, 0.1f, 0.8f)); // 조금 더 선명한 빨강
                     drawIsoShape(pos.x, pos.y);
                 }
             }

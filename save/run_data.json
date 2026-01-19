@@ -1,30 +1,17 @@
 {
-selectedHeroName: 키마
+selectedHeroName: 연초록
 selectedFaction: HADES
-currentStageLevel: 7
+currentStageLevel: 2
 heroStat: {
-	hp: 850
-	atk: 140
-	counterAtk: 30
-	move: 2
-	range: 1
-	value: 1000
+	hp: 710
+	atk: 105
+	counterAtk: 20
+	move: 1
+	range: 3
+	value: 1400
 	learnedSkills: [
 		기본 공격
-		지옥의 숨결
 		망자의 원한
-		그림자 습격
-		연옥의 불꽃
-		심연의 고리
 	]
-	usedSkills: {
-		지옥의 숨결: true
-		망자의 원한: true
-		그림자 습격: true
-		연옥의 불꽃: true
-		심연의 고리: true
-	}
 }
-soulFragments: 3
-olympusSeals: 2
 }

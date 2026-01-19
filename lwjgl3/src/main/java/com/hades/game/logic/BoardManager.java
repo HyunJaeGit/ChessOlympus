@@ -35,24 +35,28 @@ public class BoardManager {
         return distance <= unit.stat.move();
     }
 
+    // 공격 사거리
     public static boolean canAttack(Unit attacker, Unit target) {
         if (target == null || !target.isAlive() || attacker.team.equals(target.team)) return false;
 
         int dx = Math.abs(attacker.gridX - target.gridX);
         int dy = Math.abs(attacker.gridY - target.gridY);
+        int dist = dx + dy;
 
-        // 기병 (KNIGHT): 주변 8칸 모두 공격 가능 (대각선 포함 거리 1)
+        // 1. 기병 (KNIGHT): 기병은 예외적으로 주변 8칸(대각선 포함)을 모두 타격 (유연성 유지)
         if (attacker.unitClass == Unit.UnitClass.KNIGHT) {
-            return dx <= 1 && dy <= 1 && !(dx == 0 && dy == 0);
-        }
-        // 궁병 (ARCHER)
-        if (attacker.unitClass == Unit.UnitClass.ARCHER) {
-            boolean isStraight = (dx == 0 || dy == 0); // 직선 확인
-            return isStraight && (dx + dy <= attacker.stat.range()); // 직선 거리 3칸 이내
+            return dx <= 1 && dy <= 1 && dist > 0;
         }
 
-        // 일반 공격: 상하좌우 맨해튼 거리 기반
-        return (dx + dy) <= attacker.stat.range();
+        // 2. 모든 일반 유닛 및 영웅 (궁병 포함)
+        // [핵심] 동일 선상(X축 또는 Y축이 같음)에 있어야 하며, 거리가 사거리 이내여야 함
+        boolean isStraight = (dx == 0 || dy == 0);
+
+        if (isStraight && dist > 0 && dist <= attacker.stat.range()) {
+            return true;
+        }
+
+        return false;
     }
 
     // 광역 공격을 위해 주변 모든 적을 반환하는 메서드 추가
@@ -70,8 +74,6 @@ public class BoardManager {
     // 게임룰에 따라 사거리 범위 내 타겟 우선순위 설정
     public static Unit findBestTargetInRange(Unit attacker, Array<Unit> units) {
         Unit bestTarget = null;
-
-        // 비교를 위한 기준값들
         int minDistance = Integer.MAX_VALUE;
         int minHp = Integer.MAX_VALUE;
         int minCounterAtk = Integer.MAX_VALUE;
@@ -79,27 +81,25 @@ public class BoardManager {
         for (int i = 0; i < units.size; i++) {
             Unit unit = units.get(i);
 
-            // 사거리 내에 있는 살아있는 적군인지 확인
+            // canAttack 내부에서 이미 '십자가 형태'인지 체크함
             if (unit.isAlive() && !unit.team.equals(attacker.team) && canAttack(attacker, unit)) {
                 int dist = Math.abs(attacker.gridX - unit.gridX) + Math.abs(attacker.gridY - unit.gridY);
                 int currentHp = unit.currentHp;
                 int counterAtk = unit.stat.counterAtk();
 
-                // 타겟 교체 여부 결정
                 boolean shouldReplace = false;
-
                 if (bestTarget == null) {
                     shouldReplace = true;
                 } else {
-                    // 1순위: 가장 가까운 적
+                    // 1순위: 가장 가까운 적 (직선 거리 기준)
                     if (dist < minDistance) {
                         shouldReplace = true;
                     } else if (dist == minDistance) {
-                        // 2순위: 거리도 같으면 현재 체력이 더 낮은 적
+                        // 2순위: 체력이 낮은 적
                         if (currentHp < minHp) {
                             shouldReplace = true;
                         } else if (currentHp == minHp) {
-                            // 3순위: 체력까지 같으면 반격 데미지가 더 낮은 적
+                            // 3순위: 반격 데미지가 낮은 적
                             if (counterAtk < minCounterAtk) {
                                 shouldReplace = true;
                             }
