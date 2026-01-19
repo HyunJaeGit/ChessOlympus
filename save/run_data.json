@@ -1,17 +1,25 @@
 {
 selectedHeroName: 연초록
 selectedFaction: HADES
-currentStageLevel: 2
+currentStageLevel: 6
 heroStat: {
-	hp: 710
-	atk: 105
+	hp: 1060
+	atk: 120
 	counterAtk: 20
 	move: 1
 	range: 3
-	value: 1400
+	value: 300
 	learnedSkills: [
 		기본 공격
+		연옥의 불꽃
+		지옥의 숨결
 		망자의 원한
+		그림자 습격
 	]
+	usedSkills: {
+		망자의 원한: true
+		그림자 습격: true
+	}
 }
+olympusSeals: 2
 }

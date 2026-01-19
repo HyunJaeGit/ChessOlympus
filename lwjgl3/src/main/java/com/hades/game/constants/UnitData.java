@@ -73,9 +73,9 @@ public class UnitData {
     }
 
     // --- [일반 병사 스탯: 밸런싱 유지] ---
-    public static final Stat STAT_SHIELD  = new Stat(450, 25, 20, 1, 1, "방어 태세", 150);
-    public static final Stat STAT_ARCHER  = new Stat(200, 45, 5, 1, 3, "원거리 사격", 200);
-    public static final Stat STAT_KNIGHT  = new Stat(350, 40, 20, 2, 1, "기마 돌격", 250);
+    public static final Stat STAT_SHIELD  = new Stat(450, 25, 20, 1, 1, "방어 태세", 400);
+    public static final Stat STAT_ARCHER  = new Stat(200, 45, 5, 1, 3, "원거리 사격", 400);
+    public static final Stat STAT_KNIGHT  = new Stat(350, 40, 20, 2, 1, "기마 돌격", 300);
     public static final Stat STAT_CHARIOT = new Stat(300, 55, 10, 3, 1, "전차 돌진", 300);
     public static final Stat STAT_SAINT   = new Stat(250, 10, 5, 1, 1, "자동 치유", 200);
 
@@ -87,19 +87,19 @@ public class UnitData {
     public static final String IMG_SAINT   = "성녀";
 
     // --- [하데스 진영 영웅: 상향된 밸런싱] ---
-    public static final Stat SOM_JUMEOK  = new Stat(1000, 70, 50, 2, 1, "기본 공격", 1200);
-    public static final Stat KIMA        = new Stat(850, 85, 30, 2, 1, "기본 공격", 1000);
-    public static final Stat CHAN_NA     = new Stat(750, 110, 15, 3, 1, "기본 공격", 800);
-    public static final Stat THING_GYUL  = new Stat(900, 75, 25, 2, 2, "기본 공격", 1000);
-    public static final Stat YEON_CHOROK = new Stat(650, 105, 20, 1, 3, "기본 공격", 1400);
+    public static final Stat SOM_JUMEOK  = new Stat(1000, 70, 50, 2, 1, "기본 공격", 300);
+    public static final Stat KIMA        = new Stat(900, 85, 30, 2, 1, "기본 공격", 300);
+    public static final Stat CHAN_NA     = new Stat(850, 100, 15, 3, 1, "기본 공격", 300);
+    public static final Stat THING_GYUL  = new Stat(900, 75, 35, 2, 2, "기본 공격", 300);
+    public static final Stat YEON_CHOROK = new Stat(850, 100, 20, 1, 3, "기본 공격", 300);
     // --- [제우스 진영 영웅: 보스 밸런싱] ---
-    public static final Stat DEMETER    = new Stat(1100, 55, 35, 1, 1, "대지의 분노", 400);
-    public static final Stat HESTIA     = new Stat(1200, 50, 25, 2, 1, "영겁의 화로", 400);
-    public static final Stat ATHENA     = new Stat(1300, 55, 45, 1, 1, "전략적 방벽", 400);
-    public static final Stat ARTEMIS    = new Stat(1400, 70, 20, 2, 3, "달빛의 추격", 400);
-    public static final Stat HERA       = new Stat(1500, 65, 30, 2, 1, "여왕의 권위", 400);
-    public static final Stat APHRODITE  = new Stat(1600, 60, 35, 2, 2, "매혹의 향기", 400);
-    public static final Stat ZEUS       = new Stat(2000, 100, 100, 2, 2, "심판의 번개", 400);
+    public static final Stat DEMETER    = new Stat(1100, 55, 35, 1, 1, "대지의 분노", 300);
+    public static final Stat HESTIA     = new Stat(1200, 50, 25, 2, 1, "영겁의 화로", 300);
+    public static final Stat ATHENA     = new Stat(1300, 55, 45, 1, 1, "전략적 방벽", 300);
+    public static final Stat ARTEMIS    = new Stat(1400, 70, 20, 2, 3, "달빛의 추격", 300);
+    public static final Stat HERA       = new Stat(1500, 65, 30, 2, 1, "여왕의 권위", 300);
+    public static final Stat APHRODITE  = new Stat(1600, 80, 35, 2, 2, "매혹의 향기", 300);
+    public static final Stat ZEUS       = new Stat(2000, 100, 100, 2, 2, "심판의 번개", 300);
 
     public static final Color COLOR_HADES = Color.BLUE;
     public static final Color COLOR_ZEUS = Color.RED;
