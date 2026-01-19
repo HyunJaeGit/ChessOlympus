@@ -1,35 +1,28 @@
 {
-selectedHeroName: 키마
+selectedHeroName: 띵귤
 selectedFaction: HADES
-currentStageLevel: 7
+currentStageLevel: 2
 heroStat: {
 	hp: 900
-	atk: 85
-	counterAtk: 30
+	atk: 75
+	counterAtk: 35
 	move: 2
-	range: 1
+	range: 2
 	value: 300
 	learnedSkills: [
 		기본 공격
 	]
 }
-soulFragments: 13
-olympusSeals: 6
+soulFragments: 3
+olympusSeals: 1
 stageBestTimes: {
 	class: java.util.HashMap
-	1: 1.9181995
-	2: 1.3278359
-	3: 0.529196
-	4: 0.6156224
-	5: 0.5472127
-	6: 0.70546263
-	7: 1.4156635
-	7: 0.86452353
+	1: 0.817432
 }
-topBestTimes: [ 7.0591927, 7.923716, 320 ]
+topBestTimes: [ 320, 465, 615 ]
 topHeroNames: [
-	키마
-	키마
 	데브케이
+	무수하데스발닦개
+	제우스도화이팅
 ]
 }

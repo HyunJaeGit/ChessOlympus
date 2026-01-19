@@ -60,7 +60,7 @@ public class ScoreScreen extends ScreenAdapter {
         float totalTime = game.runState.getTotalClearTime();
 
         // 헤더 영역 배치
-        root.add(new Label("BATTLE REPORT", titleStyle)).padBottom(5).row();
+        root.add(new Label("체스올림푸스 기록", titleStyle)).padBottom(5).row();
 
         Label totalLabel = new Label("TOTAL CLEAR TIME " + formatTime(totalTime), totalStyle);
         root.add(totalLabel).padBottom(30).row();
@@ -74,7 +74,7 @@ public class ScoreScreen extends ScreenAdapter {
 
         // 하단 안내 문구 배치
         Label touchPrompt = new Label("TOUCH TO HOME", exitStyle);
-        touchPrompt.addAction(Actions.forever(Actions.sequence(Actions.alpha(0.3f, 1f), Actions.alpha(0.7f, 1f))));
+        touchPrompt.addAction(Actions.forever(Actions.sequence(Actions.alpha(0.5f, 1f), Actions.alpha(1f, 1f))));
         root.add(touchPrompt);
     }
 
@@ -101,7 +101,7 @@ public class ScoreScreen extends ScreenAdapter {
     // 우측 상세 스코어 테이블 생성 메서드: 스테이지별 기록을 컴팩트하게 표시합니다.
     private Table createScoreDetailTable(Map<Integer, Float> bestTimes) {
         Table detail = new Table();
-        detail.add(new Label("STAGE DETAILS", categoryStyle)).colspan(3).padBottom(15).row();
+        detail.add(new Label("STAGE RECORD", categoryStyle)).colspan(3).padBottom(15).row();
 
         for (int i = 1; i <= 7; i++) {
             Object rawValue = bestTimes.get(i);
