@@ -8,10 +8,7 @@ import com.hades.game.constants.GameConfig;
 import com.hades.game.constants.SkillData;
 import com.hades.game.view.GameUI;
 
-/**
- * Chess Olympus AI: 구원(Rescue) 및 전술적 지원 로직 통합본
- * 아군이 공격받을 때 가장 가까운 유닛이 우선적으로 대응합니다.
- */
+// Chess Olympus AI: LibGDX Array Iterator 중첩 에러 방지 버전
 public class AILogic {
 
     private static final float DIFFICULTY_FACTOR = 1.0f;
@@ -75,34 +72,41 @@ public class AILogic {
         if (recentUnitIds.size > 2) recentUnitIds.removeIndex(0);
     }
 
+    // [수정] 향상된 for문(Iterator)을 모두 제거하고 인덱스 루프로 변경
     private static MoveCandidate findGlobalBestMove(Array<Unit> units, String aiTeam, String strategy) {
         int candidateIdx = 0;
         activeCandidates.clear();
 
-        // 1. 전장 상황 파악
         int halfBoard = GameConfig.BOARD_HEIGHT / 2;
         boolean isPlayerInMyTerritory = false;
-        Unit unitUnderAttack = null; // 가장 심하게 위협받는 아군
+        Unit mostVulnerableAlly = null;
+        float lowestHpRatio = 1.1f;
 
-        for (Unit u : units) {
-            if (!u.isAlive()) continue;
+        // 1. 상황 파악 루프 (인덱스 사용)
+        for (int i = 0; i < units.size; i++) {
+            Unit u = units.get(i);
+            if (u == null || !u.isAlive()) continue;
+
             if (!u.team.equals(aiTeam)) {
-                if (u.gridY >= halfBoard) isPlayerInMyTerritory = true; // ZEUS 상단 기준
+                if (u.gridY >= halfBoard) isPlayerInMyTerritory = true;
             } else {
-                // 아군이 적의 사거리(이동+사거리) 안에 있는지 체크
                 if (isUnitUnderThreat(u, units, aiTeam)) {
-                    unitUnderAttack = u; // 이 유닛을 구원 대상으로 설정
+                    float hpRatio = (float) u.currentHp / u.stat.hp();
+                    if (hpRatio < lowestHpRatio) {
+                        lowestHpRatio = hpRatio;
+                        mostVulnerableAlly = u;
+                    }
                 }
             }
         }
 
+        // 2. 전체 탐색 루프 (인덱스 사용)
         for (int i = 0; i < units.size; i++) {
             Unit actor = units.get(i);
             if (actor == null || !actor.isAlive() || !aiTeam.equals(actor.team)) continue;
 
-            // [보스 제한] 플레이어가 중앙을 넘지 않았고 보스 자신이 위험하지 않으면 대기
             if (actor.unitClass == Unit.UnitClass.HERO && !isPlayerInMyTerritory) {
-                if (!isPotentialThreat(actor, units, aiTeam) && !canAttackFromCurrent(actor, units)) {
+                if (!isUnitUnderThreat(actor, units, aiTeam) && !canHitEnemyFrom(actor, actor.gridX, actor.gridY, units)) {
                     continue;
                 }
             }
@@ -115,11 +119,11 @@ public class AILogic {
 
                     float score = calculateFinalScore(actor, x, y, units, aiTeam, strategy) + unitBasePenalty;
 
-                    // [구원 로직] 맞고 있는 아군과 맨해튼 거리가 가까운 유닛에게 보너스 점수
-                    if (unitUnderAttack != null && actor != unitUnderAttack) {
-                        int distToAlly = Math.abs(x - unitUnderAttack.gridX) + Math.abs(y - unitUnderAttack.gridY);
-                        // 가까울수록(거리가 작을수록) 높은 가산점
-                        score += (15 - distToAlly) * 3000f;
+                    if (mostVulnerableAlly != null && actor != mostVulnerableAlly) {
+                        int distToAlly = Math.abs(x - mostVulnerableAlly.gridX) + Math.abs(y - mostVulnerableAlly.gridY);
+                        if (distToAlly <= 5 && canHitEnemyFrom(actor, x, y, units)) {
+                            score += (6 - distToAlly) * 5000f;
+                        }
                     }
 
                     if (candidateIdx < candidatesPool.size) {
@@ -147,8 +151,10 @@ public class AILogic {
         float potentialDamageTaken = 0;
         int threatCount = 0;
 
-        for (Unit enemy : units) {
-            if (!enemy.isAlive() || aiTeam.equals(enemy.team)) continue;
+        // 인덱스 루프 사용
+        for (int i = 0; i < units.size; i++) {
+            Unit enemy = units.get(i);
+            if (enemy == null || !enemy.isAlive() || aiTeam.equals(enemy.team)) continue;
 
             int distToMe = Math.abs(tx - enemy.gridX) + Math.abs(ty - enemy.gridY);
             if (distToMe <= (enemy.stat.move() + enemy.stat.range())) {
@@ -157,21 +163,32 @@ public class AILogic {
             }
 
             float targetValue = (enemy.unitClass == Unit.UnitClass.HERO) ? 15000f : 8000f;
+            if (strategy.equals("ASSASSIN") && enemy.unitClass == Unit.UnitClass.HERO) targetValue += 10000f;
+
             if (canHit(mySkill, tx, ty, enemy.gridX, enemy.gridY, actor.stat.range())) {
                 score += targetValue;
                 if (enemy.currentHp <= (int)(actor.getPower(true) * mySkill.power)) score += 20000f;
             }
         }
 
-        // 포위 회피 및 진영 유지
         if (threatCount >= 2) score += strategy.equals("ASSASSIN") ? -40000f : -100000f;
-        if (!isOwnTerritory) score += (actor.unitClass == Unit.UnitClass.HERO) ? -100000f : -40000f;
+        if (!isOwnTerritory) score += (actor.unitClass == Unit.UnitClass.HERO) ? -120000f : -40000f;
 
-        // 생존 가중치
-        float survivalWeight = strategy.equals("DEFENSIVE") ? 15f : 5f;
+        float survivalWeight = strategy.equals("DEFENSIVE") ? 20f : 8f;
         score -= (potentialDamageTaken * survivalWeight);
 
         return score * DIFFICULTY_FACTOR;
+    }
+
+    private static boolean canHitEnemyFrom(Unit actor, int tx, int ty, Array<Unit> units) {
+        SkillData.Skill skill = SkillData.get(actor.stat.skillName());
+        for (int i = 0; i < units.size; i++) {
+            Unit enemy = units.get(i);
+            if (enemy != null && enemy.isAlive() && !enemy.team.equals(actor.team)) {
+                if (canHit(skill, tx, ty, enemy.gridX, enemy.gridY, actor.stat.range())) return true;
+            }
+        }
+        return false;
     }
 
     private static boolean canHit(SkillData.Skill skill, int cx, int cy, int tx, int ty, int unitRange) {
@@ -188,8 +205,9 @@ public class AILogic {
     }
 
     private static boolean isUnitUnderThreat(Unit unit, Array<Unit> units, String aiTeam) {
-        for (Unit enemy : units) {
-            if (enemy.isAlive() && !enemy.team.equals(aiTeam)) {
+        for (int i = 0; i < units.size; i++) {
+            Unit enemy = units.get(i);
+            if (enemy != null && enemy.isAlive() && !enemy.team.equals(aiTeam)) {
                 int dist = Math.abs(enemy.gridX - unit.gridX) + Math.abs(enemy.gridY - unit.gridY);
                 if (dist <= (enemy.stat.move() + enemy.stat.range())) return true;
             }
@@ -197,24 +215,11 @@ public class AILogic {
         return false;
     }
 
-    private static boolean isPotentialThreat(Unit boss, Array<Unit> units, String aiTeam) {
-        return isUnitUnderThreat(boss, units, aiTeam);
-    }
-
-    private static boolean canAttackFromCurrent(Unit actor, Array<Unit> units) {
-        SkillData.Skill skill = SkillData.get(actor.stat.skillName());
-        for (Unit enemy : units) {
-            if (enemy.isAlive() && !enemy.team.equals(actor.team)) {
-                if (canHit(skill, actor.gridX, actor.gridY, enemy.gridX, enemy.gridY, actor.stat.range())) return true;
-            }
-        }
-        return false;
-    }
-
     private static void checkAndReserveSkill(Unit actor, int tx, int ty, Array<Unit> units) {
         SkillData.Skill skill = SkillData.get(actor.stat.skillName());
-        for (Unit enemy : units) {
-            if (enemy.isAlive() && !enemy.team.equals(actor.team)) {
+        for (int i = 0; i < units.size; i++) {
+            Unit enemy = units.get(i);
+            if (enemy != null && enemy.isAlive() && !enemy.team.equals(actor.team)) {
                 if (canHit(skill, tx, ty, enemy.gridX, enemy.gridY, actor.stat.range())) {
                     actor.stat.setReservedSkill(actor.stat.skillName());
                     break;
