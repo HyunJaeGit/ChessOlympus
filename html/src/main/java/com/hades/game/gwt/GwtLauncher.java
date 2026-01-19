@@ -7,17 +7,13 @@ import com.hades.game.HadesGame;
 
 /** Launches the GWT application. */
 public class GwtLauncher extends GwtApplication {
-        @Override
-        public GwtApplicationConfiguration getConfig () {
-            // Resizable application, uses available space in browser with no padding:
-            GwtApplicationConfiguration cfg = new GwtApplicationConfiguration(true);
-            cfg.padVertical = 0;
-            cfg.padHorizontal = 0;
-            return cfg;
-            // If you want a fixed size application, comment out the above resizable section,
-            // and uncomment below:
-            //return new GwtApplicationConfiguration(640, 480);
-        }
+    @Override
+    public GwtApplicationConfiguration getConfig () {
+        // 고정된 가상 해상도 값을 사용하거나 비율을 유지하는 설정이 안정적입니다.
+        GwtApplicationConfiguration cfg = new GwtApplicationConfiguration(1280, 720); // 예시 해상도
+        cfg.antialiasing = true; // 웹 환경에서 계단 현상 방지
+        return cfg;
+    }
 
         @Override
         public ApplicationListener createApplicationListener () {
