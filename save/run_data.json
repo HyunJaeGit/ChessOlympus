@@ -3,8 +3,8 @@ selectedHeroName: 키마
 selectedFaction: HADES
 heroStat: {
 	hp: 850
-	atk: 60
-	counterAtk: 15
+	atk: 85
+	counterAtk: 30
 	move: 2
 	range: 1
 	value: 1000

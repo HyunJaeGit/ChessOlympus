@@ -27,7 +27,7 @@ import com.hades.game.view.MapRenderer;
 import com.hades.game.view.UnitRenderer;
 import com.hades.game.view.UI;
 
-// Chess Olympus: HADES vs ZEUS - 메인 전투 화면
+// Chess Olympus: HADES vs ZEUS - 메인 전투 화면 클래스
 public class BattleScreen extends ScreenAdapter {
     private final HadesGame game;
     private ShapeRenderer shape;
@@ -135,11 +135,11 @@ public class BattleScreen extends ScreenAdapter {
             cameraManager.stopPanning();
         }
 
-        // // [버그 수정] 게임 오버가 아닐 때만 로직을 업데이트합니다.
+        // 게임 오버가 아닐 때만 유닛 및 로직 업데이트
         if (!gameOver) {
             for (Unit u : units) u.update(delta);
-            update(delta); // 여기서 handleDeath가 호출될 수 있음
-            cleanupDeadUnits(); // 사망 판정 후 안전하게 리스트에서 제거
+            update(delta);
+            cleanupDeadUnits();
         }
 
         Gdx.gl.glClearColor(0, 0, 0, 1);
@@ -169,7 +169,7 @@ public class BattleScreen extends ScreenAdapter {
         }
 
         game.batch.begin();
-        // // [버그 수정] 죽은 영웅이라도 gameOver 직후에는 화면에 그려져야 하므로 렌더링 조건 확인
+        // 죽은 영웅이라도 gameOver 상태라면 마지막 모습을 그리기 위해 조건 유지
         for (Unit u : units) {
             if (u.isAlive() || (gameOver && u.unitClass == Unit.UnitClass.HERO)) {
                 unitRenderer.renderShadow(u, selectedUnit);
@@ -189,7 +189,7 @@ public class BattleScreen extends ScreenAdapter {
     }
 
     private void update(float delta) {
-        if (gameOver) return; // // 게임 오버 시 AI 작동 및 입력 처리 즉시 중단
+        if (gameOver) return; // 게임 종료 시 모든 업데이트 중단
 
         if (turnManager.getCurrentTurn().equals(playerTeam)) {
             aiBusy = false;
@@ -200,7 +200,6 @@ public class BattleScreen extends ScreenAdapter {
             if (aiDelay >= 1.0f) {
                 if (aiBusy) {
                     try {
-                        // AI 로직 수행 중 영웅이 죽으면 여기서 예외가 발생하거나 gameOver가 true가 됨
                         AILogic.processAITurn(units, aiTeam, turnManager, this);
                     } catch (Exception e) {
                         if (!gameOver) turnManager.endTurn();
@@ -285,6 +284,7 @@ public class BattleScreen extends ScreenAdapter {
     }
 
     public void processMoveEnd(Unit unit) {
+        if (gameOver) return; // 이동 후 공격 전 게임이 이미 끝났는지 확인
         String reserved = unit.stat.getReservedSkill();
         if (reserved != null && !reserved.equals("기본 공격")) {
             executeHeroSkill(unit, reserved);
@@ -299,15 +299,22 @@ public class BattleScreen extends ScreenAdapter {
     }
 
     private void handleDeath(Unit target) {
-        if (gameOver) return;
+        if (gameOver) return; // 이미 종료된 상태면 중복 호출 무시
 
         target.status = Unit.DEAD;
+
+        // 사망 유닛이 영웅(HERO) 클래스인지 판별
         boolean isEnemyBoss = target.team.equals(aiTeam) && target.unitClass == Unit.UnitClass.HERO;
         boolean isPlayerHero = target.team.equals(playerTeam) && target.unitClass == Unit.UnitClass.HERO;
 
         if (isEnemyBoss || isPlayerHero) {
-            game.playMusic(null);
-            gameOver = true; // // [중요] 즉시 플래그를 세워 더 이상의 로직 업데이트 방지
+            game.playMusic(null); // 배경음악 정지
+            gameOver = true; // 게임 오버 상태로 전환
+
+            // AI 및 입력 상태 초기화
+            aiBusy = false;
+            aiDelay = 0;
+            selectedUnit = null;
 
             if (isEnemyBoss) {
                 if (stageLevel == 7) {
@@ -392,12 +399,11 @@ public class BattleScreen extends ScreenAdapter {
         table.add(titleBtn).padBottom(10);
 
         stage.addActor(table);
-        Gdx.input.setInputProcessor(stage);
+        Gdx.input.setInputProcessor(stage); // UI가 입력을 받도록 설정
     }
 
     private void cleanupDeadUnits() {
-        // // [버그 수정] 게임 오버 상태면 리스트에서 유닛을 지우지 않고 보존합니다.
-        if (gameOver) return;
+        if (gameOver) return; // 게임 오버 시 유닛 제거 보류
 
         for (int i = units.size - 1; i >= 0; i--) {
             if (units.get(i).status == Unit.DEAD) {

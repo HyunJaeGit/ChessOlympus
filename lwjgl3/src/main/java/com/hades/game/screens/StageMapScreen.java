@@ -213,19 +213,25 @@ public class StageMapScreen extends ScreenAdapter {
         Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        // 카메라 가용 범위 계산 및 보간 이동
+        // // [수정] 줌을 가장 먼저 업데이트합니다.
+        // // 줌이 먼저 변해야 currentHalfH가 작아져서 카메라가 노드 근처까지 더 내려갈 공간이 생깁니다.
+        cam.zoom = MathUtils.lerp(cam.zoom, targetZoom, zoomSpeedFactor);
+
+        // // [수정] 현재 변경된 줌 수치에 맞춰 실시간으로 카메라 시야 절반 크기를 계산합니다.
         float currentHalfW = (viewport.getWorldWidth() * cam.zoom) / 2f;
         float currentHalfH = (viewport.getWorldHeight() * cam.zoom) / 2f;
 
-        cam.zoom = MathUtils.lerp(cam.zoom, targetZoom, zoomSpeedFactor);
+        // // [수정] 변경된 시야(줌)를 기준으로 카메라가 맵 밖으로 나가지 않도록 경계를 계산합니다.
+        // // 줌이 1.0f로 작아진 상태라면, 넓은 줌(2.5f)일 때보다 더 아래쪽(300 좌표 등)까지 하강이 가능해집니다.
+        float clampedX = MathUtils.clamp(targetPos.x, currentHalfW, MAP_WIDTH - currentHalfW);
+        float clampedY = MathUtils.clamp(targetPos.y, currentHalfH, MAP_HEIGHT - currentHalfH);
 
-        // 카메라가 맵 밖으로 나가지 않도록 고정
-        targetPos.x = MathUtils.clamp(targetPos.x, currentHalfW, MAP_WIDTH - currentHalfW);
-        targetPos.y = MathUtils.clamp(targetPos.y, currentHalfH, MAP_HEIGHT - currentHalfH);
-        if (currentHalfW * 2 > MAP_WIDTH) targetPos.x = MAP_WIDTH / 2f;
+        // // 가로 폭이 맵 전체 너비보다 클 경우(너무 멀리 줌아웃된 경우) 강제로 중앙 정렬
+        if (currentHalfW * 2 > MAP_WIDTH) clampedX = MAP_WIDTH / 2f;
 
-        cam.position.x = MathUtils.lerp(cam.position.x, targetPos.x, moveSpeedFactor);
-        cam.position.y = MathUtils.lerp(cam.position.y, targetPos.y, moveSpeedFactor);
+        // // 최종적으로 제한된 좌표(clamped)를 향해 카메라를 부드럽게 이동시킵니다.
+        cam.position.x = MathUtils.lerp(cam.position.x, clampedX, moveSpeedFactor);
+        cam.position.y = MathUtils.lerp(cam.position.y, clampedY, moveSpeedFactor);
         cam.update();
 
         game.batch.setProjectionMatrix(cam.combined);
@@ -238,37 +244,36 @@ public class StageMapScreen extends ScreenAdapter {
         for (int i = 0; i < nodePositions.length; i++) {
             Texture tex = (i + 1 < game.runState.currentStageLevel) ? nodeClear :
                 (i + 1 == game.runState.currentStageLevel) ? nodeCurrent : nodeLocked;
+
+            // // 현재 진행해야 할 노드에만 부드러운 박동(Pulse) 애니메이션 적용
             float pulse = (i + 1 == game.runState.currentStageLevel) ? 1.0f + (float)Math.sin(stateTime * 4f) * 0.05f : 1.0f;
             game.batch.draw(tex, nodePositions[i][0] - 64 * pulse, nodePositions[i][1] - 64 * pulse, 128 * pulse, 128 * pulse);
         }
 
-        // 3. 시스템 UI(하단 버튼) 드로우
+        // 3. 시스템 UI(하단 버튼: 기록하기, 홈으로) 드로우
         drawSystemUI();
 
-        // 4. 스테이지 상세 정보창 드로우
+        // 4. 스테이지 상세 정보창 드로우 (노드 클릭 시 활성화)
         if (isInfoWindowOpen) drawInfoWindow();
 
-        // 5. 알림 메시지 드로우 (시간 초과 시 자동 소멸)
+        // 5. 알림 메시지 드로우 (저장 완료, 잠금 메시지 등)
         if (saveMessageTimer > 0) {
             float alpha = MathUtils.clamp(saveMessageTimer, 0, 1f);
             game.mainFont.setColor(0, 1f, 0.9f, alpha);
+            // // 메시지 가독성을 위해 카메라 줌 수치에 맞춰 폰트 크기 조절
             game.mainFont.getData().setScale(cam.zoom * 0.75f);
 
-            // 1. 텍스트 박스(레이아웃) 생성 및 문구 너비 계산
-            // 이 박스는 눈에 보이지 않지만, 문구의 실제 가로/세로 길이를 측정
             com.badlogic.gdx.graphics.g2d.GlyphLayout layout = new com.badlogic.gdx.graphics.g2d.GlyphLayout();
             layout.setText(game.mainFont, saveMessage);
 
-            // 2. 계산된 박스 크기를 바탕으로 정중앙 좌표 산출
-            // (카메라 중심) - (박스 너비의 절반) = 완벽한 좌우 중앙
+            // // 메시지가 항상 카메라 화면의 정중앙에 오도록 좌표 계산
             float textX = cam.position.x - (layout.width / 2);
-            // (카메라 중심) + (박스 높이의 절반) = 완벽한 상하 중앙
             float textY = cam.position.y + (layout.height / 2);
 
-            // 3. 그리기
             game.mainFont.draw(game.batch, saveMessage, textX, textY);
 
             saveMessageTimer -= delta;
+            // // 폰트 상태 복구 (다른 곳에 영향을 주지 않도록)
             game.mainFont.setColor(Color.WHITE);
             game.mainFont.getData().setScale(1.0f);
         }
